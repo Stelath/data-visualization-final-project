@@ -1,20 +1,42 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { scaleLinear, scalePoint } from "@visx/scale";
+import React, { useState, useMemo } from "react";
+import { ScaleLinear } from 'd3-scale';
+import { scalePoint, scaleLinear } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import { Group } from "@visx/group";
 import { AxisLeft, AxisBottom } from "@visx/axis";
 import { useMissingPersonsData } from "@/context/MissingPersonsContext";
 import { extent, bin } from "d3-array";
 
+// Define types for the data structure
+type Dimension = "age" | "height" | "weight" | "yearsMissing";
+type PlotDataPoint = {
+  index: number;
+  age: number;
+  height: number;
+  weight: number;
+  yearsMissing: number;
+  gender: string;
+  race: string;
+  state: string;
+  [key: string]: number | string; // Index signature for dynamic access
+};
+
+// Define types for scales
+type DimensionScale = ScaleLinear<number, number>;
+type HistogramScale = {
+  x: DimensionScale;
+  y: DimensionScale;
+};
+
+const dimensions: Dimension[] = ["age", "height", "weight", "yearsMissing"];
+
 const ParallelCoordinatesPlot: React.FC = () => {
   const { missingPersonsData, filteredIndices, setFilteredIndices, loading } =
     useMissingPersonsData();
   const [sampleSize, setSampleSize] = useState(1000);
   const [selectedRanges, setSelectedRanges] = useState<{
-    [key: string]: [number, number][];
+    [key in Dimension]?: [number, number][];
   }>({});
-
-  const dimensions = ["age", "height", "weight", "yearsMissing"];
 
   const margin = { top: 20, right: 40, bottom: 200, left: 60 };
   const plotWidth = 1000 - margin.left - margin.right;
@@ -23,7 +45,7 @@ const ParallelCoordinatesPlot: React.FC = () => {
   const histogramHeight = 100;
 
   // Preprocess data for consistent access
-  const fullPlotData = useMemo(() => {
+  const fullPlotData = useMemo<PlotDataPoint[]>(() => {
     if (!missingPersonsData) return [];
     return missingPersonsData.map((d, index) => ({
       index,
@@ -46,70 +68,82 @@ const ParallelCoordinatesPlot: React.FC = () => {
     return filteredIndices
       .filter((_, idx) => idx % step === 0)
       .map((index) => fullPlotData[index])
-      .filter((d) => dimensions.every((dim) => d[dim] !== null && d[dim] !== undefined));
+      .filter((d): d is PlotDataPoint =>
+        dimensions.every((dim) => typeof d?.[dim] === "number")
+      );
   }, [filteredIndices, sampleSize, fullPlotData]);
 
   const xScale = useMemo(
     () =>
-      scalePoint({
+      scalePoint<Dimension>({
         range: [0, plotWidth],
         domain: dimensions,
         padding: 0.5,
       }),
-    [plotWidth, dimensions]
+    [plotWidth]
   );
 
   const yScales = useMemo(() => {
-    const scales: { [key: string]: any } = {};
+    const scales: Record<Dimension, DimensionScale> = {} as Record<
+      Dimension,
+      DimensionScale
+    >;
     dimensions.forEach((dim) => {
-      const values = fullPlotData.map((d) => d[dim]);
-      scales[dim] = scaleLinear({
+      const values = fullPlotData.map((d) => d[dim] as number);
+      scales[dim] = scaleLinear<number>({
         domain: extent(values) as [number, number],
         range: [mainHeight, 0],
         nice: true,
       });
     });
     return scales;
-  }, [fullPlotData, mainHeight, dimensions]);
+  }, [fullPlotData, mainHeight]);
 
   const histogramScales = useMemo(() => {
-    const scales: { [key: string]: { x: any; y: any } } = {};
+    const scales: Record<Dimension, HistogramScale> = {} as Record<
+      Dimension,
+      HistogramScale
+    >;
+
     dimensions.forEach((dim) => {
-      const values = fullPlotData.map((d) => d[dim]);
+      const values = fullPlotData.map((d) => d[dim] as number);
       const binGenerator = bin().domain(extent(values) as [number, number]).thresholds(20);
       const bins = binGenerator(values);
 
       scales[dim] = {
-        x: scaleLinear({
+        x: scaleLinear<number>({
           domain: extent(values) as [number, number],
           range: [0, plotWidth / dimensions.length - 20],
           nice: true,
         }),
-        y: scaleLinear({
+        y: scaleLinear<number>({
           domain: [0, Math.max(...bins.map((b) => b.length))],
           range: [histogramHeight, 0],
         }),
       };
     });
     return scales;
-  }, [fullPlotData, dimensions, plotWidth, histogramHeight]);
+  }, [fullPlotData, plotWidth, histogramHeight]);
 
-  const updateFilters = (dimension: string, range: [number, number]) => {
+  const updateFilters = (dimension: Dimension, range: [number, number]) => {
     const newSelectedRanges = { ...selectedRanges };
 
     if (!newSelectedRanges[dimension]) {
       newSelectedRanges[dimension] = [range];
     } else {
-      const rangeIndex = newSelectedRanges[dimension].findIndex(
-        ([min, max]) => min === range[0] && max === range[1]
-      );
-      if (rangeIndex >= 0) {
-        newSelectedRanges[dimension].splice(rangeIndex, 1);
-        if (newSelectedRanges[dimension].length === 0) {
-          delete newSelectedRanges[dimension];
+      const ranges = newSelectedRanges[dimension];
+      if (ranges) {
+        const rangeIndex = ranges.findIndex(
+          ([min, max]) => min === range[0] && max === range[1]
+        );
+        if (rangeIndex >= 0) {
+          ranges.splice(rangeIndex, 1);
+          if (ranges.length === 0) {
+            delete newSelectedRanges[dimension];
+          }
+        } else {
+          ranges.push(range);
         }
-      } else {
-        newSelectedRanges[dimension].push(range);
       }
     }
 
@@ -118,10 +152,12 @@ const ParallelCoordinatesPlot: React.FC = () => {
     let newFilteredIndices = fullPlotData.map((_, index) => index);
 
     Object.entries(newSelectedRanges).forEach(([dim, ranges]) => {
-      newFilteredIndices = newFilteredIndices.filter((index) => {
-        const value = fullPlotData[index][dim];
-        return ranges.some(([min, max]) => value >= min && value <= max);
-      });
+      if (ranges) {
+        newFilteredIndices = newFilteredIndices.filter((index) => {
+          const value = fullPlotData[index][dim as Dimension] as number;
+          return ranges.some(([min, max]) => value >= min && value <= max);
+        });
+      }
     });
 
     setFilteredIndices(newFilteredIndices);
@@ -132,11 +168,10 @@ const ParallelCoordinatesPlot: React.FC = () => {
     setFilteredIndices(fullPlotData.map((_, index) => index));
   };
 
-  const isBarSelected = (dimension: string, range: [number, number]) => {
-    if (!selectedRanges[dimension]) return false;
-    return selectedRanges[dimension].some(
-      ([min, max]) => min === range[0] && max === range[1]
-    );
+  const isBarSelected = (dimension: Dimension, range: [number, number]) => {
+    const ranges = selectedRanges[dimension];
+    if (!ranges) return false;
+    return ranges.some(([min, max]) => min === range[0] && max === range[1]);
   };
 
   if (loading || !sampledPlotData.length) {
@@ -167,75 +202,85 @@ const ParallelCoordinatesPlot: React.FC = () => {
           </button>
         </div>
       </div>
-      <svg
-        width={plotWidth + margin.left + margin.right}
-        height={plotHeight + margin.top + margin.bottom + histogramHeight}
-      >
-        <Group top={margin.top} left={margin.left}>
-          {/* Parallel Coordinates Plot */}
-          {sampledPlotData.map((d, i) => (
-            <LinePath
-              key={i}
-              data={dimensions.map((dim) => ({
-                x: xScale(dim) || 0,
-                y: yScales[dim](d[dim]),
-              }))}
-              x={(p) => p.x}
-              y={(p) => p.y}
-              stroke="steelblue"
-              strokeWidth={1}
-              strokeOpacity={0.2}
-            />
-          ))}
+      <div className="flex justify-center">
+        <svg
+          width={plotWidth + margin.left + margin.right}
+          height={plotHeight + margin.top + margin.bottom + histogramHeight}
+        >
+          <Group top={margin.top} left={margin.left}>
+            {/* Parallel Coordinates Plot */}
+            {sampledPlotData.map((d, i) => (
+              <LinePath<{ x: number; y: number }>
+                key={i}
+                data={dimensions.map((dim) => ({
+                  x: xScale(dim) || 0,
+                  y: yScales[dim](d[dim] as number),
+                }))}
+                x={(p) => p.x}
+                y={(p) => p.y}
+                stroke="steelblue"
+                strokeWidth={1}
+                strokeOpacity={0.2}
+              />
+            ))}
 
-          {/* Axes */}
-          {dimensions.map((dim) => (
-            <Group key={dim} left={xScale(dim)}>
-              <AxisLeft scale={yScales[dim]} label={dim} />
-            </Group>
-          ))}
-
-          {/* Histograms */}
-          {dimensions.map((dim, dimIndex) => {
-            const binGenerator = bin()
-              .domain(yScales[dim].domain() as [number, number])
-              .thresholds(20);
-            const bins = binGenerator(fullPlotData.map((d) => d[dim]));
-            const barWidth = (plotWidth / dimensions.length - 20) / bins.length;
-
-            return (
-              <Group
-                key={dim}
-                top={mainHeight + 50}
-                left={dimIndex * (plotWidth / dimensions.length)}
-              >
-                {bins.map((b, binIndex) => (
-                  <rect
-                    key={binIndex}
-                    x={histogramScales[dim].x(b.x0)}
-                    y={histogramScales[dim].y(b.length)}
-                    width={barWidth}
-                    height={histogramHeight - histogramScales[dim].y(b.length)}
-                    fill={isBarSelected(dim, [b.x0, b.x1]) ? "steelblue" : "#ccc"}
-                    opacity={isBarSelected(dim, [b.x0, b.x1]) ? 0.8 : 0.5}
-                    onClick={() => updateFilters(dim, [b.x0, b.x1])}
-                    className="cursor-pointer hover:opacity-75"
-                  />
-                ))}
-                <AxisBottom
-                  scale={histogramScales[dim].x}
-                  top={histogramHeight}
-                  label={dim}
-                  tickLabelProps={() => ({
-                    fontSize: 10,
-                    textAnchor: "middle",
-                  })}
-                />
+            {/* Axes */}
+            {dimensions.map((dim) => (
+              <Group key={dim} left={xScale(dim) || 0}>
+                <AxisLeft scale={yScales[dim] as any} label={dim} />
               </Group>
-            );
-          })}
-        </Group>
-      </svg>
+            ))}
+
+            {/* Histograms */}
+            {dimensions.map((dim, dimIndex) => {
+              const binGenerator = bin()
+                .domain(yScales[dim].domain() as [number, number])
+                .thresholds(20);
+              const bins = binGenerator(fullPlotData.map((d) => d[dim] as number));
+              const barWidth = (plotWidth / dimensions.length - 20) / bins.length;
+
+              return (
+                <Group
+                  key={dim}
+                  top={mainHeight + 50}
+                  left={dimIndex * (plotWidth / dimensions.length)}
+                >
+                  {bins.map((b, binIndex) => {
+                    const x0 = b.x0 ?? 0;
+                    const x1 = b.x1 ?? 0;
+                    const x = histogramScales[dim].x(x0);
+                    const y = histogramScales[dim].y(b.length);
+                    const height = histogramHeight - y;
+
+                    return (
+                      <rect
+                        key={binIndex}
+                        x={x}
+                        y={y}
+                        width={barWidth}
+                        height={height}
+                        fill={isBarSelected(dim, [x0, x1]) ? "steelblue" : "#ccc"}
+                        opacity={isBarSelected(dim, [x0, x1]) ? 0.8 : 0.5}
+                        onClick={() => updateFilters(dim, [x0, x1])}
+                        className="cursor-pointer hover:opacity-75"
+                      />
+                    );
+                  })}
+                  <AxisBottom
+                    scale={histogramScales[dim].x as any}
+                    top={histogramHeight}
+                    label={dim}
+                    tickLabelProps={() => ({
+                      fontSize: 10,
+                      textAnchor: "middle",
+                    })}
+                  />
+                </Group>
+              );
+            })}
+          </Group>
+        </svg>
+      </div>
     </div>
   );
 };

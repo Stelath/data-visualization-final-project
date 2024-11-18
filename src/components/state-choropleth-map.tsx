@@ -125,7 +125,7 @@ const StateChoroplethMap: React.FC = () => {
   };
 
   return (
-    <div className="relative font-sans">
+    <div className="relative font-sans flex justify-center">
       <svg width={width} height={height}>
         <Group>
           {mergedData.features.map((feature, i) => {

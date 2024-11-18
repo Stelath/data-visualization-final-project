@@ -24,7 +24,7 @@ export const MissingPersonsProvider: React.FC<{ children: React.ReactNode }> = (
   const [missingPersonsData, setMissingPersonsData] = useState<MissingPersonRecord[] | null>(null);
   const [filteredIndices, setFilteredIndices] = useState<number[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('https://storage.googleapis.com/data-visualization-stelath/data/MissingPersons.json')

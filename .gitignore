@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 public/data/*
+public/assets/*
+
+repopack-output.txt

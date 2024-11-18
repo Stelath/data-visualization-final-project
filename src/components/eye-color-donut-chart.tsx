@@ -3,6 +3,7 @@ import { Pie } from '@visx/shape';
 import { Group } from '@visx/group';
 import { scaleOrdinal } from '@visx/scale';
 import { Text } from '@visx/text';
+import { useMissingPersonsData } from '@/context/MissingPersonsContext';
 
 interface EyeColorData {
   name: string;
@@ -21,54 +22,57 @@ const COLORS: { [key: string]: string } = {
 };
 
 const EyeColorDonutChart: React.FC = () => {
+  const { missingPersonsData, loading } = useMissingPersonsData();
   const [data, setData] = useState<EyeColorData[]>([]);
 
   useEffect(() => {
-    fetch('/data/MissingPersons.json')
-      .then((response) => response.json())
-      .then((mpData) => {
-        const eyeColors: { [key: string]: number } = {};
+    if (loading || !missingPersonsData) return;
 
-        mpData.forEach((record: any) => {
-          const physDesc = record.physicalDescription;
-          if (physDesc) {
-            const leftEye = physDesc.leftEyeColor?.localizedName || 'Unknown';
-            const rightEye = physDesc.rightEyeColor?.localizedName || 'Unknown';
-            eyeColors[leftEye] = (eyeColors[leftEye] || 0) + 1;
-            eyeColors[rightEye] = (eyeColors[rightEye] || 0) + 1;
-          }
-        });
+    const eyeColors: { [key: string]: number } = {};
 
-        // Combine rare colors into 'Other'
-        const total = Object.values(eyeColors).reduce((a, b) => a + b, 0);
-        const threshold = total * 0.01; // 1%
-        let otherTotal = 0;
+    missingPersonsData.forEach((record: any) => {
+      const physDesc = record.physicalDescription;
+      if (physDesc) {
+        const leftEye = physDesc.leftEyeColor?.localizedName || 'Unknown';
+        const rightEye = physDesc.rightEyeColor?.localizedName || 'Unknown';
+        eyeColors[leftEye] = (eyeColors[leftEye] || 0) + 1;
+        eyeColors[rightEye] = (eyeColors[rightEye] || 0) + 1;
+      }
+    });
 
-        const filteredEyeColors = Object.entries(eyeColors)
-          .filter(([color, count]) => {
-            if (count < threshold || !COLORS[color]) {
-              otherTotal += count;
-              return false;
-            }
-            return true;
-          })
-          .map(([name, value]) => ({ name, value }));
+    // Combine rare colors into 'Other'
+    const total = Object.values(eyeColors).reduce((a, b) => a + b, 0);
+    const threshold = total * 0.01; // 1%
+    let otherTotal = 0;
 
-        if (otherTotal > 0) {
-          filteredEyeColors.push({ name: 'Other', value: otherTotal });
+    const filteredEyeColors = Object.entries(eyeColors)
+      .filter(([color, count]) => {
+        if (count < threshold || !COLORS[color]) {
+          otherTotal += count;
+          return false;
         }
+        return true;
+      })
+      .map(([name, value]) => ({ name, value }));
 
-        setData(filteredEyeColors);
-      });
-  }, []);
+    if (otherTotal > 0) {
+      filteredEyeColors.push({ name: 'Other', value: otherTotal });
+    }
+
+    setData(filteredEyeColors);
+  }, [missingPersonsData, loading]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   const width = 400;
   const height = 400;
   const radius = Math.min(width, height) / 2 - 40;
 
   const colorScale = scaleOrdinal<string, string>({
-    domain: data.map(d => d.name),
-    range: data.map(d => COLORS[d.name] || COLORS['Other']),
+    domain: data.map((d) => d.name),
+    range: data.map((d) => COLORS[d.name] || COLORS['Other']),
   });
 
   const total = data.reduce((acc, cur) => acc + cur.value, 0);

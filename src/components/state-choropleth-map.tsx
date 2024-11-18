@@ -1,140 +1,104 @@
-// src/MissingPersonsMap.js
-
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { geoPath, geoAlbersUsa } from 'd3-geo';
-import { scaleSequential } from 'd3-scale';
+import { scaleSequential, scaleLinear } from 'd3-scale';
 import { interpolateBlues } from 'd3-scale-chromatic';
 import { Group } from '@visx/group';
 import { LegendLinear } from '@visx/legend';
+import { useMissingPersonsData } from '../context/MissingPersonsContext';
 
-const MissingPersonsMap = () => {
-  const [geoData, setGeoData] = useState(null);
-  const [missingData, setMissingData] = useState(null);
-  const [mergedData, setMergedData] = useState(null);
+interface GeoFeature {
+  type: string;
+  properties: {
+    NAME: string;
+    count?: number;
+  };
+  geometry: any;
+}
+
+interface GeoData {
+  type: string;
+  features: GeoFeature[];
+}
+
+const MissingPersonsMap: React.FC = () => {
+  const { missingPersonsData, loading: missingDataLoading } = useMissingPersonsData();
+  const [geoData, setGeoData] = useState<GeoData | null>(null);
+  const [mergedData, setMergedData] = useState<GeoData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Mapping from state abbreviations to full names if needed
-  // const stateMap = {
-  //   AL: 'Alabama',
-  //   AK: 'Alaska',
-  //   AZ: 'Arizona',
-  //   AR: 'Arkansas',
-  //   CA: 'California',
-  //   CO: 'Colorado',
-  //   CT: 'Connecticut',
-  //   DE: 'Delaware',
-  //   FL: 'Florida',
-  //   GA: 'Georgia',
-  //   HI: 'Hawaii',
-  //   ID: 'Idaho',
-  //   IL: 'Illinois',
-  //   IN: 'Indiana',
-  //   IA: 'Iowa',
-  //   KS: 'Kansas',
-  //   KY: 'Kentucky',
-  //   LA: 'Louisiana',
-  //   ME: 'Maine',
-  //   MD: 'Maryland',
-  //   MA: 'Massachusetts',
-  //   MI: 'Michigan',
-  //   MN: 'Minnesota',
-  //   MS: 'Mississippi',
-  //   MO: 'Missouri',
-  //   MT: 'Montana',
-  //   NE: 'Nebraska',
-  //   NV: 'Nevada',
-  //   NH: 'New Hampshire',
-  //   NJ: 'New Jersey',
-  //   NM: 'New Mexico',
-  //   NY: 'New York',
-  //   NC: 'North Carolina',
-  //   ND: 'North Dakota',
-  //   OH: 'Ohio',
-  //   OK: 'Oklahoma',
-  //   OR: 'Oregon',
-  //   PA: 'Pennsylvania',
-  //   RI: 'Rhode Island',
-  //   SC: 'South Carolina',
-  //   SD: 'South Dakota',
-  //   TN: 'Tennessee',
-  //   TX: 'Texas',
-  //   UT: 'Utah',
-  //   VT: 'Vermont',
-  //   VA: 'Virginia',
-  //   WA: 'Washington',
-  //   WV: 'West Virginia',
-  //   WI: 'Wisconsin',
-  //   WY: 'Wyoming',
-  // };
-
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch Missing Persons Data
-        const missingResponse = await fetch('/data/MissingPersons.json');
-        const missingJson = await missingResponse.json();
-        setMissingData(missingJson);
-
-        // Fetch GeoJSON Data
-        const geoResponse = await fetch('/assets/us-states.geojson');
-        const geoJson = await geoResponse.json();
+    // Fetch GeoJSON Data
+    fetch('https://storage.googleapis.com/data-visualization-stelath/assets/us-states.geojson')
+      .then((response) => response.json())
+      .then((geoJson) => {
         setGeoData(geoJson);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
-
-    fetchData();
+      })
+      .catch((error) => {
+        console.error('Error fetching geo data:', error);
+      });
   }, []);
 
   useEffect(() => {
-    if (geoData && missingData) {
-      // Step 1: Count missing persons per state
-      const stateCounts = {};
-
-      missingData.forEach((entry) => {
-        const state = entry.sighting.address.state.displayName;
-        if (state && state !== 'Alaska' && state !== 'Hawaii') { // Exclude non-contiguous states
-          stateCounts[state] = (stateCounts[state] || 0) + 1;
-        }
-      });
-
-      // Step 2: Merge counts into GeoJSON
-      const featuresWithCounts = geoData.features.map((feature) => {
-        const stateName = feature.properties.NAME;
-        const count = stateCounts[stateName] || 0;
-        return {
-          ...feature,
-          properties: {
-            ...feature.properties,
-            count,
-          },
-        };
-      });
-
-      setMergedData({
-        ...geoData,
-        features: featuresWithCounts,
-      });
-
-      setLoading(false);
+    if (!geoData || !missingPersonsData || missingDataLoading) {
+      return;
     }
-  }, [geoData, missingData]);
 
-  if (loading) {
+    // Step 1: Count missing persons per state
+    const stateCounts: { [key: string]: number } = {};
+
+    missingPersonsData.forEach((entry: any) => {
+      const state = entry.sighting.address.state.displayName;
+      if (state && state !== 'Alaska' && state !== 'Hawaii') {
+        stateCounts[state] = (stateCounts[state] || 0) + 1;
+      }
+    });
+
+    // Step 2: Merge counts into GeoJSON
+    const featuresWithCounts = geoData.features.map((feature) => {
+      const stateName = feature.properties.NAME;
+      const count = stateCounts[stateName] || 0;
+      return {
+        ...feature,
+        properties: {
+          ...feature.properties,
+          count,
+        },
+      };
+    });
+
+    setMergedData({
+      ...geoData,
+      features: featuresWithCounts,
+    });
+
+    setLoading(false);
+  }, [geoData, missingPersonsData, missingDataLoading]);
+
+  if (loading || !mergedData) {
     return <div>Loading...</div>;
   }
 
-  // Define color scale
-  const maxCount = Math.max(...mergedData.features.map(f => f.properties.count));
-  const colorScale = scaleSequential()
+  if (loading || !mergedData) {
+    return <div>Loading...</div>;
+  }
+
+  // Define color scales
+  const counts = mergedData.features.map((f) => f.properties.count || 0);
+  const maxCount = Math.max(...counts);
+
+  const colorScale = scaleSequential(interpolateBlues)
+    .domain([0, maxCount]);
+
+  // Create a linear scale for the legend
+  const legendScale = scaleLinear<string>()
     .domain([0, maxCount])
-    .interpolator(interpolateBlues);
+    .range(['#f7fbff', '#08519c']);
 
   // Define projection
-  const projection = geoAlbersUsa()
-    .translate([500 / 2, 300 / 2])
-    .scale(1000);
+  const projection = geoAlbersUsa().translate([960 / 2, 600 / 2]).scale(1000);
+
+  // Define path generator
+  const pathGenerator = geoPath().projection(projection);
 
   // Define dimensions
   const width = 960;
@@ -145,12 +109,12 @@ const MissingPersonsMap = () => {
       <svg width={width} height={height}>
         <Group>
           {mergedData.features.map((feature, i) => {
-            const path = geoPath().projection(projection)(feature);
-            const count = feature.properties.count;
+            const path = pathGenerator(feature.geometry);
+            const count = feature.properties.count || 0;
             return (
               <path
                 key={`path-${i}`}
-                d={path}
+                d={path || undefined}
                 fill={count > 0 ? colorScale(count) : '#EEE'}
                 stroke="#fff"
                 strokeWidth={0.5}
@@ -178,12 +142,7 @@ const MissingPersonsMap = () => {
         >
           Distribution by State
         </text>
-        <text
-          x={width * 0.05}
-          y={height - 30}
-          fontSize="10"
-          fill="gray"
-        >
+        <text x={width * 0.05} y={height - 30} fontSize="10" fill="gray">
           Source: Missing Persons Database
         </text>
       </svg>
@@ -191,14 +150,12 @@ const MissingPersonsMap = () => {
       {/* Color Legend */}
       <div style={{ position: 'absolute', left: 50, top: 100 }}>
         <LegendLinear
-          scale={colorScale}
-          labelFormat={(value) => Math.round(value)}
-          direction="horizontal"
-          labelOffset={20}
+          scale={legendScale}
+          labelFormat={(value) => Math.round(value as number).toString()}
+          direction="column"
+          steps={5}
         />
-        <div style={{ marginTop: 10, fontSize: 12 }}>
-          Number of Missing Persons
-        </div>
+        <div style={{ marginTop: 10, fontSize: 12 }}>Number of Missing Persons</div>
       </div>
     </div>
   );

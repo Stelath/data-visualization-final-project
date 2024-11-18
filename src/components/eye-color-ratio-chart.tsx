@@ -5,7 +5,7 @@ import { scaleBand, scaleLinear, scaleOrdinal } from '@visx/scale';
 import { AxisBottom, AxisLeft } from '@visx/axis';
 import { Grid } from '@visx/grid';
 import { Line } from '@visx/shape';
-import { Text } from '@visx/text';
+import { useMissingPersonsData } from '../context/MissingPersonsContext';
 
 interface RatioData {
   name: string;
@@ -14,64 +14,67 @@ interface RatioData {
 }
 
 const EyeColorRatioChart: React.FC = () => {
+  const { missingPersonsData, loading } = useMissingPersonsData();
   const [data, setData] = useState<RatioData[]>([]);
 
   useEffect(() => {
-    fetch('/data/MissingPersons.json')
-      .then((response) => response.json())
-      .then((mpData) => {
-        const eyeColors: { [key: string]: number } = {};
+    if (loading || !missingPersonsData) return;
 
-        mpData.forEach((record: any) => {
-          const physDesc = record.physicalDescription;
-          if (physDesc) {
-            const leftEye = physDesc.leftEyeColor?.localizedName || 'Unknown';
-            const rightEye = physDesc.rightEyeColor?.localizedName || 'Unknown';
-            eyeColors[leftEye] = (eyeColors[leftEye] || 0) + 1;
-            eyeColors[rightEye] = (eyeColors[rightEye] || 0) + 1;
-          }
-        });
+    const eyeColors: { [key: string]: number } = {};
 
-        const total = Object.values(eyeColors).reduce((a, b) => a + b, 0);
-        const missingPersonPercentages: { [key: string]: number } = {};
+    missingPersonsData.forEach((record: any) => {
+      const physDesc = record.physicalDescription;
+      if (physDesc) {
+        const leftEye = physDesc.leftEyeColor?.localizedName || 'Unknown';
+        const rightEye = physDesc.rightEyeColor?.localizedName || 'Unknown';
+        eyeColors[leftEye] = (eyeColors[leftEye] || 0) + 1;
+        eyeColors[rightEye] = (eyeColors[rightEye] || 0) + 1;
+      }
+    });
 
-        Object.entries(eyeColors).forEach(([color, count]) => {
-          missingPersonPercentages[color] = (count / total) * 100;
-        });
+    const total = Object.values(eyeColors).reduce((a, b) => a + b, 0);
+    const missingPersonPercentages: { [key: string]: number } = {};
 
-        // Population frequencies
-        const populationFrequencies: { [key: string]: number } = {
-          Brown: 45.0,
-          Blue: 27.0,
-          Hazel: 18.0,
-          Green: 9.0,
-          Other: 1.0,
-        };
+    Object.entries(eyeColors).forEach(([color, count]) => {
+      missingPersonPercentages[color] = (count / total) * 100;
+    });
 
-        // Eye color mapping
-        const eyeColorMap: { [key: string]: string } = {
-          Brown: '#8B4513',
-          Blue: '#4169E1',
-          Hazel: '#8E7618',
-          Green: '#228B22',
-          Other: '#808080',
-        };
+    // Population frequencies
+    const populationFrequencies: { [key: string]: number } = {
+      Brown: 45.0,
+      Blue: 27.0,
+      Hazel: 18.0,
+      Green: 9.0,
+      Other: 1.0,
+    };
 
-        // Calculate representation ratios
-        const ratios = Object.keys(populationFrequencies).map((color) => {
-          const observed = missingPersonPercentages[color] || 0;
-          const expected = populationFrequencies[color];
-          const ratio = observed / expected;
-          return { 
-            name: color, 
-            ratio: parseFloat(ratio.toFixed(2)),
-            color: eyeColorMap[color] || '#000000'
-          };
-        });
+    // Eye color mapping
+    const eyeColorMap: { [key: string]: string } = {
+      Brown: '#8B4513',
+      Blue: '#4169E1',
+      Hazel: '#8E7618',
+      Green: '#228B22',
+      Other: '#808080',
+    };
 
-        setData(ratios);
-      });
-  }, []);
+    // Calculate representation ratios
+    const ratios = Object.keys(populationFrequencies).map((color) => {
+      const observed = missingPersonPercentages[color] || 0;
+      const expected = populationFrequencies[color];
+      const ratio = observed / expected;
+      return {
+        name: color,
+        ratio: parseFloat(ratio.toFixed(2)),
+        color: eyeColorMap[color] || '#000000',
+      };
+    });
+
+    setData(ratios);
+  }, [missingPersonsData, loading]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   // Define dimensions
   const width = 600;
@@ -99,7 +102,7 @@ const EyeColorRatioChart: React.FC = () => {
 
   const colorScale = scaleOrdinal<string, string>({
     domain: data.map(x),
-    range: data.map(d => d.color),
+    range: data.map((d) => d.color),
   });
 
   return (

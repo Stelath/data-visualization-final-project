@@ -3,6 +3,7 @@ import { Pie } from '@visx/shape';
 import { Group } from '@visx/group';
 import { scaleOrdinal } from '@visx/scale';
 import { Text } from '@visx/text';
+import { useMissingPersonsData } from '../context/MissingPersonsContext';
 
 interface GenderData {
   name: string;
@@ -12,34 +13,37 @@ interface GenderData {
 const COLORS = ['#0088FE', '#FF8042', '#00C49F'];
 
 const GenderDonutChart: React.FC = () => {
+  const { missingPersonsData, loading } = useMissingPersonsData();
   const [data, setData] = useState<GenderData[]>([]);
 
   useEffect(() => {
-    fetch('/data/MissingPersons.json')
-      .then((res) => res.json())
-      .then((mpData) => {
-        const genderCounts: { [key: string]: number } = {};
+    if (loading || !missingPersonsData) return;
 
-        mpData.forEach((record: any) => {
-          const gender = record.subjectDescription?.sex?.localizedName || 'Unknown';
-          genderCounts[gender] = (genderCounts[gender] || 0) + 1;
-        });
+    const genderCounts: { [key: string]: number } = {};
 
-        const chartData = Object.entries(genderCounts).map(([name, value]) => ({
-          name,
-          value,
-        }));
+    missingPersonsData.forEach((record: any) => {
+      const gender = record.subjectDescription?.sex?.localizedName || 'Unknown';
+      genderCounts[gender] = (genderCounts[gender] || 0) + 1;
+    });
 
-        setData(chartData);
-      });
-  }, []);
+    const chartData = Object.entries(genderCounts).map(([name, value]) => ({
+      name,
+      value,
+    }));
+
+    setData(chartData);
+  }, [missingPersonsData, loading]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   const width = 400;
   const height = 400;
   const radius = Math.min(width, height) / 2 - 40;
 
   const colorScale = scaleOrdinal<string, string>({
-    domain: data.map(d => d.name),
+    domain: data.map((d) => d.name),
     range: COLORS,
   });
 

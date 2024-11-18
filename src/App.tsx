@@ -9,6 +9,7 @@ import EyeColorDonutChart from "@/components/eye-color-donut-chart";
 import EyeColorRatioChart from "@/components/eye-color-ratio-chart";
 import GenderDonutChart from "@/components/gender-donut-chart";
 import StateChoroplethMap from "@/components/state-choropleth-map";
+import ParallelCoordinatesPlot from "@/components/parallel-coordinates-plot";
 import { MissingPersonsProvider } from "@/context/MissingPersonsContext";
 import "./App.css";
 
@@ -26,6 +27,15 @@ function App() {
             </CardHeader>
             <CardContent>
               <StateChoroplethMap />
+            </CardContent>
+          </Card>
+
+          <Card className="w-full">
+            <CardHeader>
+              <CardTitle>Parallel Coordinates Plot</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ParallelCoordinatesPlot />
             </CardContent>
           </Card>
 

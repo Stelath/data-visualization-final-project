@@ -21,8 +21,7 @@ interface GeoData {
 }
 
 const MissingPersonsMap: React.FC = () => {
-  const { missingPersonsData, loading: missingDataLoading } =
-    useMissingPersonsData();
+  const { filteredData, loading: missingDataLoading } = useMissingPersonsData();
   const [geoData, setGeoData] = useState<GeoData | null>(null);
   const [mergedData, setMergedData] = useState<GeoData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,31 +46,33 @@ const MissingPersonsMap: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!geoData || !missingPersonsData || missingDataLoading) {
+    if (!geoData || !filteredData || missingDataLoading) {
       return;
     }
-
+  
     const stateCounts: { [key: string]: number } = {};
-
-    missingPersonsData.forEach((entry: any) => {
+  
+    filteredData.forEach((entry: any) => {
       try {
-        const stateAbbr = entry.sighting.address.state.displayName;
-        // Find full state name from abbreviation
-        const fullStateName = Object.keys(stateNameMapping).find(
-          (key) => stateNameMapping[key] === stateAbbr
-        );
-
-        if (
-          fullStateName &&
-          fullStateName !== "Alaska" &&
-          fullStateName !== "Hawaii"
-        ) {
-          stateCounts[fullStateName] = (stateCounts[fullStateName] || 0) + 1;
+        const stateAbbr = entry.sighting?.address?.state?.displayName;
+        if (stateAbbr) {
+          // Find full state name from abbreviation
+          const fullStateName = Object.keys(stateNameMapping).find(
+            (key) => stateNameMapping[key] === stateAbbr
+          );
+  
+          if (
+            fullStateName &&
+            fullStateName !== "Alaska" &&
+            fullStateName !== "Hawaii"
+          ) {
+            stateCounts[fullStateName] = (stateCounts[fullStateName] || 0) + 1;
+          }
         }
       } catch (error) {
         console.error("Error processing missing persons data:", error);
       }
-    });
+    });  
 
     const statesToRemove = [
       "Commonwealth of the Northern Mariana Islands",
@@ -103,7 +104,7 @@ const MissingPersonsMap: React.FC = () => {
     });
 
     setLoading(false);
-  }, [geoData, missingPersonsData, missingDataLoading]);
+  }, [geoData, filteredData, missingDataLoading]);
 
   if (loading || !mergedData) {
     return <div>Loading...</div>;

@@ -8,16 +8,21 @@ interface MissingPersonRecord {
 
 interface MissingPersonsContextProps {
   missingPersonsData: MissingPersonRecord[] | null;
+  filteredData: MissingPersonRecord[] | null;
+  setFilteredData: (data: MissingPersonRecord[]) => void;
   loading: boolean;
 }
 
 const MissingPersonsContext = createContext<MissingPersonsContextProps>({
   missingPersonsData: null,
+  filteredData: null,
+  setFilteredData: () => {},
   loading: true,
 });
 
 export const MissingPersonsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [missingPersonsData, setMissingPersonsData] = useState<MissingPersonRecord[] | null>(null);
+  const [filteredData, setFilteredData] = useState<MissingPersonRecord[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,6 +30,7 @@ export const MissingPersonsProvider: React.FC<{ children: React.ReactNode }> = (
       .then((response) => response.json())
       .then((data) => {
         setMissingPersonsData(data);
+        setFilteredData(data); // Initialize filteredData with all data
         setLoading(false);
       })
       .catch((error) => {
@@ -34,7 +40,7 @@ export const MissingPersonsProvider: React.FC<{ children: React.ReactNode }> = (
   }, []);
 
   return (
-    <MissingPersonsContext.Provider value={{ missingPersonsData, loading }}>
+    <MissingPersonsContext.Provider value={{ missingPersonsData, filteredData, setFilteredData, loading }}>
       {children}
     </MissingPersonsContext.Provider>
   );

@@ -4,7 +4,6 @@ import { scaleSequential } from "d3-scale";
 import { interpolateBlues } from "d3-scale-chromatic";
 import { Group } from "@visx/group";
 import { useMissingPersonsData } from "@/context/MissingPersonsContext";
-import { stateNameMapping } from "@/utils/stateNameMapping";
 
 interface GeoFeature {
   type: string;
@@ -49,54 +48,46 @@ const MissingPersonsMap: React.FC = () => {
     if (!geoData || !filteredData || missingDataLoading) {
       return;
     }
-  
+
     const stateCounts: { [key: string]: number } = {};
-  
+
     filteredData.forEach((entry: any) => {
       try {
-        const stateAbbr = entry.sighting?.address?.state?.displayName;
-        if (stateAbbr) {
-          // Find full state name from abbreviation
-          const fullStateName = Object.keys(stateNameMapping).find(
-            (key) => stateNameMapping[key] === stateAbbr
-          );
-  
+        // **Updated Access**: Access the 'state' property directly
+        const stateName = entry.state; // Changed from nested access
+
+        if (stateName) {
+          // Exclude specific states as before
           if (
-            fullStateName &&
-            fullStateName !== "Alaska" &&
-            fullStateName !== "Hawaii"
+            stateName !== "Alaska" &&
+            stateName !== "Hawaii" &&
+            stateName !== "Commonwealth of the Northern Mariana Islands" &&
+            stateName !== "Guam" &&
+            stateName !== "Puerto Rico" &&
+            stateName !== "American Samoa" &&
+            stateName !== "United States Virgin Islands"
           ) {
-            stateCounts[fullStateName] = (stateCounts[fullStateName] || 0) + 1;
+            stateCounts[stateName] = (stateCounts[stateName] || 0) + 1;
           }
         }
       } catch (error) {
         console.error("Error processing missing persons data:", error);
       }
-    });  
+    });
 
-    const statesToRemove = [
-      "Commonwealth of the Northern Mariana Islands",
-      "Guam",
-      "Puerto Rico",
-      "American Samoa",
-      "United States Virgin Islands",
-      "Alaska",
-      "Hawaii",
-    ];
+    // **Removed 'statesToRemove' Array**: Already handled above
 
-    const featuresWithCounts = geoData.features
-      .filter((feature) => !statesToRemove.includes(feature.properties.NAME))
-      .map((feature) => {
-        const stateName = feature.properties.NAME;
-        const count = stateCounts[stateName] || 0;
-        return {
-          ...feature,
-          properties: {
-            ...feature.properties,
-            count,
-          },
-        };
-      });
+    const featuresWithCounts = geoData.features.map((feature) => {
+      const stateName = feature.properties.NAME;
+      const count = stateCounts[stateName] || 0;
+      return {
+        ...feature,
+        properties: {
+          ...feature.properties,
+          count,
+        },
+      };
+    });
 
     setMergedData({
       ...geoData,
@@ -133,7 +124,7 @@ const MissingPersonsMap: React.FC = () => {
       x: event.clientX,
       y: event.clientY
     });
-  };  
+  };
 
   const handleMouseLeave = () => {
     setHoveredState(null);

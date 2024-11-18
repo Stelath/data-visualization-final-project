@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/react-accordion": "^1.2.1",
+    "@radix-ui/react-select": "^2.1.2",
     "@visx/axis": "^3.12.0",
     "@visx/geo": "^3.12.0",
     "@visx/grid": "^3.12.0",
@@ -18,16 +20,22 @@
     "@visx/scale": "^3.12.0",
     "@visx/shape": "^3.12.0",
     "@visx/text": "^3.12.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
     "d3": "^7.9.0",
     "d3-geo": "^3.1.1",
     "d3-scale": "^4.0.2",
     "d3-scale-chromatic": "^3.1.0",
+    "lucide-react": "^0.460.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-tooltip": "^5.28.0"
+    "react-tooltip": "^5.28.0",
+    "tailwind-merge": "^2.5.4",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
+    "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",

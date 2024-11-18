@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
+import { Pie } from '@visx/shape';
+import { Group } from '@visx/group';
+import { scaleOrdinal } from '@visx/scale';
+import { Text } from '@visx/text';
 
 interface EyeColorData {
   name: string;
@@ -15,7 +18,6 @@ const COLORS: { [key: string]: string } = {
   Other: '#A9A9A9',
   Black: '#000000',
   Unknown: '#D3D3D3',
-  // Add other colors if needed
 };
 
 const EyeColorDonutChart: React.FC = () => {
@@ -60,20 +62,55 @@ const EyeColorDonutChart: React.FC = () => {
       });
   }, []);
 
-  const renderLabel = (entry: any) => `${entry.name}: ${((entry.value / data.reduce((acc, cur) => acc + cur.value, 0)) * 100).toFixed(1)}%`;
+  const width = 400;
+  const height = 400;
+  const radius = Math.min(width, height) / 2 - 40;
+
+  const colorScale = scaleOrdinal<string, string>({
+    domain: data.map(d => d.name),
+    range: data.map(d => COLORS[d.name] || COLORS['Other']),
+  });
+
+  const total = data.reduce((acc, cur) => acc + cur.value, 0);
 
   return (
     <div>
       <h2>Eye Color Distribution of Missing Persons</h2>
-      <PieChart width={400} height={400}>
-        <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} innerRadius={70} label={renderLabel}>
-          {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[entry.name] || COLORS['Other']} />
-          ))}
-        </Pie>
-        <Tooltip />
-        <Legend />
-      </PieChart>
+      <svg width={width} height={height}>
+        <Group top={height / 2} left={width / 2}>
+          <Pie
+            data={data}
+            pieValue={(d) => d.value}
+            outerRadius={radius}
+            innerRadius={radius - 50}
+            padAngle={0.01}
+          >
+            {(pie) =>
+              pie.arcs.map((arc, index) => {
+                const [centroidX, centroidY] = pie.path.centroid(arc);
+                const arcPath = pie.path(arc) as string;
+                const color = colorScale(arc.data.name);
+                return (
+                  <g key={`arc-${arc.data.name}-${index}`}>
+                    <path d={arcPath} fill={color} />
+                    <Text
+                      x={centroidX}
+                      y={centroidY}
+                      dy=".33em"
+                      fill="white"
+                      fontSize={12}
+                      textAnchor="middle"
+                    >
+                      {`${((arc.data.value / total) * 100).toFixed(1)}%`}
+                    </Text>
+                  </g>
+                );
+              })
+            }
+          </Pie>
+        </Group>
+      </svg>
+      {/* Add legend here if needed */}
     </div>
   );
 };

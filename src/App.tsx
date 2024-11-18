@@ -4,7 +4,7 @@ import EyeColorRatioChart from '@/components/eye-color-ratio-chart';
 import GenderDonutChart from '@/components/gender-donut-chart';
 // import StateChoroplethMap from '@/components/state-choropleth-map';
 
-export default function App() {
+function App() {
   return (
     <div>
       <h1>Missing Persons Data Visualizations</h1>
@@ -16,6 +16,5 @@ export default function App() {
     </div>
   );
 }
-
 
 export default App

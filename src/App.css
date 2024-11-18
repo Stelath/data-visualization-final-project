@@ -1,0 +1,6 @@
+.chart-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Two columns */
+    gap: 16px; /* Space between the charts */
+    margin-top: 20px; /* Space above the chart container */
+  }

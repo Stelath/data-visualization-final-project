@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { geoPath, geoAlbersUsa } from 'd3-geo';
-import { scaleSequential, scaleLinear } from 'd3-scale';
-import { interpolateBlues } from 'd3-scale-chromatic';
-import { Group } from '@visx/group';
-import { LegendLinear } from '@visx/legend';
-import { useMissingPersonsData } from '../context/MissingPersonsContext';
+import React, { useEffect, useState } from "react";
+import { geoPath, geoAlbersUsa } from "d3-geo";
+import { scaleSequential } from "d3-scale";
+import { interpolateBlues } from "d3-scale-chromatic";
+import { Group } from "@visx/group";
+import { useMissingPersonsData } from "@/context/MissingPersonsContext";
+import { stateNameMapping } from "@/utils/stateNameMapping";
 
 interface GeoFeature {
   type: string;
@@ -21,20 +21,28 @@ interface GeoData {
 }
 
 const MissingPersonsMap: React.FC = () => {
-  const { missingPersonsData, loading: missingDataLoading } = useMissingPersonsData();
+  const { missingPersonsData, loading: missingDataLoading } =
+    useMissingPersonsData();
   const [geoData, setGeoData] = useState<GeoData | null>(null);
   const [mergedData, setMergedData] = useState<GeoData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hoveredState, setHoveredState] = useState<{
+    name: string;
+    count: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   useEffect(() => {
-    // Fetch GeoJSON Data
-    fetch('https://storage.googleapis.com/data-visualization-stelath/assets/us-states.geojson')
+    fetch(
+      "https://storage.googleapis.com/data-visualization-stelath/assets/us-states.geojson"
+    )
       .then((response) => response.json())
       .then((geoJson) => {
         setGeoData(geoJson);
       })
       .catch((error) => {
-        console.error('Error fetching geo data:', error);
+        console.error("Error fetching geo data:", error);
       });
   }, []);
 
@@ -43,28 +51,51 @@ const MissingPersonsMap: React.FC = () => {
       return;
     }
 
-    // Step 1: Count missing persons per state
     const stateCounts: { [key: string]: number } = {};
 
     missingPersonsData.forEach((entry: any) => {
-      const state = entry.sighting.address.state.displayName;
-      if (state && state !== 'Alaska' && state !== 'Hawaii') {
-        stateCounts[state] = (stateCounts[state] || 0) + 1;
+      try {
+        const stateAbbr = entry.sighting.address.state.displayName;
+        // Find full state name from abbreviation
+        const fullStateName = Object.keys(stateNameMapping).find(
+          (key) => stateNameMapping[key] === stateAbbr
+        );
+
+        if (
+          fullStateName &&
+          fullStateName !== "Alaska" &&
+          fullStateName !== "Hawaii"
+        ) {
+          stateCounts[fullStateName] = (stateCounts[fullStateName] || 0) + 1;
+        }
+      } catch (error) {
+        console.error("Error processing missing persons data:", error);
       }
     });
 
-    // Step 2: Merge counts into GeoJSON
-    const featuresWithCounts = geoData.features.map((feature) => {
-      const stateName = feature.properties.NAME;
-      const count = stateCounts[stateName] || 0;
-      return {
-        ...feature,
-        properties: {
-          ...feature.properties,
-          count,
-        },
-      };
-    });
+    const statesToRemove = [
+      "Commonwealth of the Northern Mariana Islands",
+      "Guam",
+      "Puerto Rico",
+      "American Samoa",
+      "United States Virgin Islands",
+      "Alaska",
+      "Hawaii",
+    ];
+
+    const featuresWithCounts = geoData.features
+      .filter((feature) => !statesToRemove.includes(feature.properties.NAME))
+      .map((feature) => {
+        const stateName = feature.properties.NAME;
+        const count = stateCounts[stateName] || 0;
+        return {
+          ...feature,
+          properties: {
+            ...feature.properties,
+            count,
+          },
+        };
+      });
 
     setMergedData({
       ...geoData,
@@ -78,52 +109,62 @@ const MissingPersonsMap: React.FC = () => {
     return <div>Loading...</div>;
   }
 
-  if (loading || !mergedData) {
-    return <div>Loading...</div>;
-  }
-
-  // Define color scales
   const counts = mergedData.features.map((f) => f.properties.count || 0);
   const maxCount = Math.max(...counts);
 
-  const colorScale = scaleSequential(interpolateBlues)
-    .domain([0, maxCount]);
+  const colorScale = scaleSequential(interpolateBlues).domain([0, maxCount]);
 
-  // Create a linear scale for the legend
-  const legendScale = scaleLinear<string>()
-    .domain([0, maxCount])
-    .range(['#f7fbff', '#08519c']);
-
-  // Define projection
-  const projection = geoAlbersUsa().translate([960 / 2, 600 / 2]).scale(1000);
-
-  // Define path generator
+  const projection = geoAlbersUsa()
+    .translate([960 / 2, 600 / 2])
+    .scale(1000);
   const pathGenerator = geoPath().projection(projection);
 
-  // Define dimensions
   const width = 960;
   const height = 600;
 
+  const handleMouseMove = (
+    event: React.MouseEvent,
+    feature: GeoFeature
+  ) => {
+    setHoveredState({
+      name: feature.properties.NAME,
+      count: feature.properties.count || 0,
+      x: event.clientX,
+      y: event.clientY
+    });
+  };  
+
+  const handleMouseLeave = () => {
+    setHoveredState(null);
+  };
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="relative font-sans">
       <svg width={width} height={height}>
         <Group>
           {mergedData.features.map((feature, i) => {
             const path = pathGenerator(feature.geometry);
             const count = feature.properties.count || 0;
+            const isHovered = hoveredState?.name === feature.properties.NAME;
+
             return (
               <path
                 key={`path-${i}`}
                 d={path || undefined}
-                fill={count > 0 ? colorScale(count) : '#EEE'}
-                stroke="#fff"
-                strokeWidth={0.5}
+                fill={count > 0 ? colorScale(count) : "#EEE"}
+                stroke={isHovered ? "#2563eb" : "#fff"}
+                strokeWidth={isHovered ? 2 : 0.5}
+                onMouseMove={(e) => handleMouseMove(e, feature)}
+                onMouseLeave={handleMouseLeave}
+                style={{
+                  transition:
+                    "stroke 0.2s ease-in-out, stroke-width 0.2s ease-in-out",
+                }}
               />
             );
           })}
         </Group>
 
-        {/* Titles and Annotations */}
         <text
           x={width / 2}
           y={40}
@@ -147,16 +188,21 @@ const MissingPersonsMap: React.FC = () => {
         </text>
       </svg>
 
-      {/* Color Legend */}
-      <div style={{ position: 'absolute', left: 50, top: 100 }}>
-        <LegendLinear
-          scale={legendScale}
-          labelFormat={(value) => Math.round(value as number).toString()}
-          direction="column"
-          steps={5}
-        />
-        <div style={{ marginTop: 10, fontSize: 12 }}>Number of Missing Persons</div>
-      </div>
+      {hoveredState && (
+        <div
+          className="fixed bg-white px-4 py-2 rounded shadow-lg border border-gray-200 pointer-events-none"
+          style={{
+            left: `${hoveredState.x}px`,
+            top: `${hoveredState.y}px`,
+            transform: 'translate(10px, 10px)',
+          }}
+        >
+          <p className="font-semibold">{hoveredState.name}</p>
+          <p className="text-gray-600">
+            Missing Persons: {hoveredState.count.toLocaleString()}
+          </p>
+        </div>
+      )}
     </div>
   );
 };

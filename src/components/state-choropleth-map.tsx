@@ -1,12 +1,10 @@
 // src/MissingPersonsMap.js
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { geoPath, geoAlbersUsa } from 'd3-geo';
 import { scaleSequential } from 'd3-scale';
 import { interpolateBlues } from 'd3-scale-chromatic';
-import { Feature } from 'geojson';
 import { Group } from '@visx/group';
-import { Mercator } from '@visx/geo';
 import { LegendLinear } from '@visx/legend';
 
 const MissingPersonsMap = () => {
@@ -16,58 +14,58 @@ const MissingPersonsMap = () => {
   const [loading, setLoading] = useState(true);
 
   // Mapping from state abbreviations to full names if needed
-  const stateMap = {
-    AL: 'Alabama',
-    AK: 'Alaska',
-    AZ: 'Arizona',
-    AR: 'Arkansas',
-    CA: 'California',
-    CO: 'Colorado',
-    CT: 'Connecticut',
-    DE: 'Delaware',
-    FL: 'Florida',
-    GA: 'Georgia',
-    HI: 'Hawaii',
-    ID: 'Idaho',
-    IL: 'Illinois',
-    IN: 'Indiana',
-    IA: 'Iowa',
-    KS: 'Kansas',
-    KY: 'Kentucky',
-    LA: 'Louisiana',
-    ME: 'Maine',
-    MD: 'Maryland',
-    MA: 'Massachusetts',
-    MI: 'Michigan',
-    MN: 'Minnesota',
-    MS: 'Mississippi',
-    MO: 'Missouri',
-    MT: 'Montana',
-    NE: 'Nebraska',
-    NV: 'Nevada',
-    NH: 'New Hampshire',
-    NJ: 'New Jersey',
-    NM: 'New Mexico',
-    NY: 'New York',
-    NC: 'North Carolina',
-    ND: 'North Dakota',
-    OH: 'Ohio',
-    OK: 'Oklahoma',
-    OR: 'Oregon',
-    PA: 'Pennsylvania',
-    RI: 'Rhode Island',
-    SC: 'South Carolina',
-    SD: 'South Dakota',
-    TN: 'Tennessee',
-    TX: 'Texas',
-    UT: 'Utah',
-    VT: 'Vermont',
-    VA: 'Virginia',
-    WA: 'Washington',
-    WV: 'West Virginia',
-    WI: 'Wisconsin',
-    WY: 'Wyoming',
-  };
+  // const stateMap = {
+  //   AL: 'Alabama',
+  //   AK: 'Alaska',
+  //   AZ: 'Arizona',
+  //   AR: 'Arkansas',
+  //   CA: 'California',
+  //   CO: 'Colorado',
+  //   CT: 'Connecticut',
+  //   DE: 'Delaware',
+  //   FL: 'Florida',
+  //   GA: 'Georgia',
+  //   HI: 'Hawaii',
+  //   ID: 'Idaho',
+  //   IL: 'Illinois',
+  //   IN: 'Indiana',
+  //   IA: 'Iowa',
+  //   KS: 'Kansas',
+  //   KY: 'Kentucky',
+  //   LA: 'Louisiana',
+  //   ME: 'Maine',
+  //   MD: 'Maryland',
+  //   MA: 'Massachusetts',
+  //   MI: 'Michigan',
+  //   MN: 'Minnesota',
+  //   MS: 'Mississippi',
+  //   MO: 'Missouri',
+  //   MT: 'Montana',
+  //   NE: 'Nebraska',
+  //   NV: 'Nevada',
+  //   NH: 'New Hampshire',
+  //   NJ: 'New Jersey',
+  //   NM: 'New Mexico',
+  //   NY: 'New York',
+  //   NC: 'North Carolina',
+  //   ND: 'North Dakota',
+  //   OH: 'Ohio',
+  //   OK: 'Oklahoma',
+  //   OR: 'Oregon',
+  //   PA: 'Pennsylvania',
+  //   RI: 'Rhode Island',
+  //   SC: 'South Carolina',
+  //   SD: 'South Dakota',
+  //   TN: 'Tennessee',
+  //   TX: 'Texas',
+  //   UT: 'Utah',
+  //   VT: 'Vermont',
+  //   VA: 'Virginia',
+  //   WA: 'Washington',
+  //   WV: 'West Virginia',
+  //   WI: 'Wisconsin',
+  //   WY: 'Wyoming',
+  // };
 
   useEffect(() => {
     const fetchData = async () => {

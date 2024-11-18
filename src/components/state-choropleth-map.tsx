@@ -1,3 +1,4 @@
+// src/components/state-choropleth-map.tsx
 import React, { useEffect, useState } from "react";
 import { geoPath, geoAlbersUsa } from "d3-geo";
 import { scaleSequential } from "d3-scale";
@@ -19,11 +20,11 @@ interface GeoData {
   features: GeoFeature[];
 }
 
-const MissingPersonsMap: React.FC = () => {
-  const { filteredData, loading: missingDataLoading } = useMissingPersonsData();
+const StateChoroplethMap: React.FC = () => {
+  const { missingPersonsData, filteredIndices, loading } = useMissingPersonsData();
   const [geoData, setGeoData] = useState<GeoData | null>(null);
   const [mergedData, setMergedData] = useState<GeoData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [geoLoading, setGeoLoading] = useState(true);
   const [hoveredState, setHoveredState] = useState<{
     name: string;
     count: number;
@@ -32,51 +33,39 @@ const MissingPersonsMap: React.FC = () => {
   } | null>(null);
 
   useEffect(() => {
-    fetch(
-      "https://storage.googleapis.com/data-visualization-stelath/assets/us-states.geojson"
-    )
+    fetch("https://storage.googleapis.com/data-visualization-stelath/assets/us-states.geojson")
       .then((response) => response.json())
-      .then((geoJson) => {
+      .then((geoJson: GeoData) => {
         setGeoData(geoJson);
+        setGeoLoading(false);
       })
       .catch((error) => {
         console.error("Error fetching geo data:", error);
+        setGeoLoading(false);
       });
   }, []);
 
   useEffect(() => {
-    if (!geoData || !filteredData || missingDataLoading) {
+    if (
+      geoLoading ||
+      loading ||
+      !geoData ||
+      !filteredIndices ||
+      !missingPersonsData
+    ) {
       return;
     }
-
+  
     const stateCounts: { [key: string]: number } = {};
-
-    filteredData.forEach((entry: any) => {
-      try {
-        // **Updated Access**: Access the 'state' property directly
-        const stateName = entry.state; // Changed from nested access
-
-        if (stateName) {
-          // Exclude specific states as before
-          if (
-            stateName !== "Alaska" &&
-            stateName !== "Hawaii" &&
-            stateName !== "Commonwealth of the Northern Mariana Islands" &&
-            stateName !== "Guam" &&
-            stateName !== "Puerto Rico" &&
-            stateName !== "American Samoa" &&
-            stateName !== "United States Virgin Islands"
-          ) {
-            stateCounts[stateName] = (stateCounts[stateName] || 0) + 1;
-          }
-        }
-      } catch (error) {
-        console.error("Error processing missing persons data:", error);
+  
+    filteredIndices.forEach((index) => {
+      const entry = missingPersonsData[index];
+      const stateName = entry.sighting?.address?.state?.name || "Unknown";
+      if (stateName && stateName !== "Unknown") {
+        stateCounts[stateName] = (stateCounts[stateName] || 0) + 1;
       }
     });
-
-    // **Removed 'statesToRemove' Array**: Already handled above
-
+  
     const featuresWithCounts = geoData.features.map((feature) => {
       const stateName = feature.properties.NAME;
       const count = stateCounts[stateName] || 0;
@@ -88,16 +77,21 @@ const MissingPersonsMap: React.FC = () => {
         },
       };
     });
-
+  
     setMergedData({
       ...geoData,
       features: featuresWithCounts,
     });
+  }, [
+    geoData,
+    filteredIndices,
+    geoLoading,
+    loading,
+    missingPersonsData,
+  ]);
+  
 
-    setLoading(false);
-  }, [geoData, filteredData, missingDataLoading]);
-
-  if (loading || !mergedData) {
+  if (geoLoading || loading || !mergedData) {
     return <div>Loading...</div>;
   }
 
@@ -199,4 +193,4 @@ const MissingPersonsMap: React.FC = () => {
   );
 };
 
-export default MissingPersonsMap;
+export default StateChoroplethMap;

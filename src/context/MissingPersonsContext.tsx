@@ -1,36 +1,37 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface MissingPersonRecord {
-  // Define the properties based on your data structure
   [key: string]: any;
 }
 
 interface MissingPersonsContextProps {
   missingPersonsData: MissingPersonRecord[] | null;
+  filteredIndices: number[] | null;
+  setFilteredIndices: (indices: number[] | null) => void;
   loading: boolean;
-  filteredIndices: number[];
-  setFilteredIndices: (indices: number[]) => void;
+  error: string | null;
 }
 
 const MissingPersonsContext = createContext<MissingPersonsContextProps>({
   missingPersonsData: null,
-  loading: true,
-  filteredIndices: [],
+  filteredIndices: null,
   setFilteredIndices: () => {},
+  loading: true,
+  error: null,
 });
 
-
 export const MissingPersonsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [missingPersonsData, setMissingPersonsData] = useState<MissingPersonRecord[] | null>(null);
+  const [filteredIndices, setFilteredIndices] = useState<number[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filteredIndices, setFilteredIndices] = useState<number[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('https://storage.googleapis.com/data-visualization-stelath/data/MissingPersons.json')
       .then((response) => response.json())
-      .then((data) => {
+      .then((data: MissingPersonRecord[]) => {
         setMissingPersonsData(data);
-        setFilteredIndices(data.map((_, index) => index)); // Initialize to all indices
+        setFilteredIndices(data.map((_, index) => index)); // This initializes filteredIndices
         setLoading(false);
       })
       .catch((error) => {
@@ -40,33 +41,7 @@ export const MissingPersonsProvider: React.FC<{ children: React.ReactNode }> = (
   }, []);
 
   return (
-    <MissingPersonsContext.Provider value={{ missingPersonsData, loading, filteredIndices, setFilteredIndices }}>
-      {children}
-    </MissingPersonsContext.Provider>
-  );
-};
-
-export const MissingPersonsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [missingPersonsData, setMissingPersonsData] = useState<MissingPersonRecord[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [filteredIndices, setFilteredIndices] = useState<number[]>([]);
-
-  useEffect(() => {
-    fetch('https://storage.googleapis.com/data-visualization-stelath/data/MissingPersons.json')
-      .then((response) => response.json())
-      .then((data) => {
-        setMissingPersonsData(data);
-        setFilteredIndices(data.map((_, index) => index)); // Initialize to all indices
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error('Error fetching MissingPersons data:', error);
-        setLoading(false);
-      });
-  }, []);
-
-  return (
-    <MissingPersonsContext.Provider value={{ missingPersonsData, loading, filteredIndices, setFilteredIndices }}>
+    <MissingPersonsContext.Provider value={{ missingPersonsData, filteredIndices, setFilteredIndices, loading, error }}>
       {children}
     </MissingPersonsContext.Provider>
   );

@@ -2,7 +2,7 @@ import React from 'react';
 import EyeColorDonutChart from '@/components/eye-color-donut-chart';
 import EyeColorRatioChart from '@/components/eye-color-ratio-chart';
 import GenderDonutChart from '@/components/gender-donut-chart';
-// import StateChoroplethMap from '@/components/state-choropleth-map';
+import StateChoroplethMap from '@/components/state-choropleth-map';
 
 function App() {
   return (
@@ -11,7 +11,7 @@ function App() {
       <GenderDonutChart />
       <EyeColorDonutChart />
       <EyeColorRatioChart />
-      {/* <StateChoroplethMap /> */}
+      <StateChoroplethMap />
       {/* <CountyChoroplethMap /> */}
     </div>
   );

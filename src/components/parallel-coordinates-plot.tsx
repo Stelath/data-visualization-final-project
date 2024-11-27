@@ -1,14 +1,16 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo } from 'react';
 import { ScaleLinear } from 'd3-scale';
-import { scalePoint, scaleLinear } from "@visx/scale";
-import { LinePath } from "@visx/shape";
-import { Group } from "@visx/group";
-import { AxisLeft, AxisBottom } from "@visx/axis";
-import { useMissingPersonsData } from "@/context/MissingPersonsContext";
-import { extent, bin } from "d3-array";
+import { scalePoint, scaleLinear } from '@visx/scale';
+import { LinePath } from '@visx/shape';
+import { Group } from '@visx/group';
+import { AxisLeft, AxisBottom } from '@visx/axis';
+import { useMissingPersonsData } from '@/context/MissingPersonsContext';
+import { extent, bin } from 'd3-array';
 
-// Define types for the data structure
-type Dimension = "age" | "height" | "weight" | "yearsMissing";
+// Re order age, next to years missing
+// Set age to age gone missing
+
+type Dimension = 'age' | 'height' | 'weight' | 'yearsMissing';
 type PlotDataPoint = {
   index: number;
   age: number;
@@ -18,59 +20,56 @@ type PlotDataPoint = {
   gender: string;
   race: string;
   state: string;
-  [key: string]: number | string; // Index signature for dynamic access
+  [key: string]: number | string;
 };
 
-// Define types for scales
 type DimensionScale = ScaleLinear<number, number>;
 type HistogramScale = {
   x: DimensionScale;
   y: DimensionScale;
 };
 
-const dimensions: Dimension[] = ["age", "height", "weight", "yearsMissing"];
+interface ParallelCoordinatesPlotProps {
+  onDimensionClick?: (dimension: Dimension) => void;
+}
 
-const ParallelCoordinatesPlot: React.FC = () => {
-  const { missingPersonsData, filteredIndices, setFilteredIndices, loading } =
-    useMissingPersonsData();
+const dimensions: Dimension[] = ['age', 'height', 'weight', 'yearsMissing'];
+
+const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({ onDimensionClick }) => {
+  const { missingPersonsData, filteredIndices, setFilteredIndices, loading } = useMissingPersonsData();
   const [sampleSize, setSampleSize] = useState(1000);
   const [selectedRanges, setSelectedRanges] = useState<{
     [key in Dimension]?: [number, number][];
   }>({});
 
   const margin = { top: 20, right: 40, bottom: 200, left: 60 };
-  const plotWidth = 1000 - margin.left - margin.right;
-  const plotHeight = 600 - margin.top - margin.bottom;
-  const mainHeight = 300;
+  const plotWidth = 600 - margin.left - margin.right;
+  const plotHeight = 400 - margin.top - margin.bottom;
+  const mainHeight = 200;
   const histogramHeight = 100;
 
-  // Preprocess data for consistent access
   const fullPlotData = useMemo<PlotDataPoint[]>(() => {
     if (!missingPersonsData) return [];
     return missingPersonsData.map((d, index) => ({
       index,
-      age: d.subjectIdentification?.currentMinAge || 0,
+      age: d.subjectIdentification?.computedMissingMinAge || 0,
       height: d.subjectDescription?.heightFrom || 0,
       weight: d.subjectDescription?.weightFrom || 0,
       yearsMissing:
-        (Date.now() - new Date(d.sighting?.date || Date.now()).getTime()) /
-        (1000 * 3600 * 24 * 365),
-      gender: d.subjectDescription?.sex?.localizedName || "Unknown",
-      race: d.subjectDescription?.primaryEthnicity?.localizedName || "Unknown",
-      state: d.sighting?.address?.state?.name || "Unknown",
+        (Date.now() - new Date(d.sighting?.date || Date.now()).getTime()) / (1000 * 3600 * 24 * 365),
+      gender: d.subjectDescription?.sex?.localizedName || 'Unknown',
+      race: d.subjectDescription?.primaryEthnicity?.localizedName || 'Unknown',
+      state: d.sighting?.address?.state?.name || 'Unknown',
     }));
   }, [missingPersonsData]);
 
-  // Subsample data for performance
   const sampledPlotData = useMemo(() => {
     if (!filteredIndices) return [];
     const step = Math.max(1, Math.floor(filteredIndices.length / sampleSize));
     return filteredIndices
       .filter((_, idx) => idx % step === 0)
       .map((index) => fullPlotData[index])
-      .filter((d): d is PlotDataPoint =>
-        dimensions.every((dim) => typeof d?.[dim] === "number")
-      );
+      .filter((d): d is PlotDataPoint => dimensions.every((dim) => typeof d?.[dim] === 'number'));
   }, [filteredIndices, sampleSize, fullPlotData]);
 
   const xScale = useMemo(
@@ -84,10 +83,7 @@ const ParallelCoordinatesPlot: React.FC = () => {
   );
 
   const yScales = useMemo(() => {
-    const scales: Record<Dimension, DimensionScale> = {} as Record<
-      Dimension,
-      DimensionScale
-    >;
+    const scales: Record<Dimension, DimensionScale> = {} as Record<Dimension, DimensionScale>;
     dimensions.forEach((dim) => {
       const values = fullPlotData.map((d) => d[dim] as number);
       scales[dim] = scaleLinear<number>({
@@ -100,14 +96,13 @@ const ParallelCoordinatesPlot: React.FC = () => {
   }, [fullPlotData, mainHeight]);
 
   const histogramScales = useMemo(() => {
-    const scales: Record<Dimension, HistogramScale> = {} as Record<
-      Dimension,
-      HistogramScale
-    >;
+    const scales: Record<Dimension, HistogramScale> = {} as Record<Dimension, HistogramScale>;
 
     dimensions.forEach((dim) => {
       const values = fullPlotData.map((d) => d[dim] as number);
-      const binGenerator = bin().domain(extent(values) as [number, number]).thresholds(20);
+      const binGenerator = bin()
+        .domain(extent(values) as [number, number])
+        .thresholds(20);
       const bins = binGenerator(values);
 
       scales[dim] = {
@@ -174,6 +169,12 @@ const ParallelCoordinatesPlot: React.FC = () => {
     return ranges.some(([min, max]) => min === range[0] && max === range[1]);
   };
 
+  const handleDimensionClick = (dim: Dimension) => {
+    if (onDimensionClick) {
+      onDimensionClick(dim);
+    }
+  };
+
   if (loading || !sampledPlotData.length) {
     return <div>Loading...</div>;
   }
@@ -181,7 +182,6 @@ const ParallelCoordinatesPlot: React.FC = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Missing Persons Analysis</h2>
         <div>
           <label>
             Sample Size:
@@ -189,7 +189,9 @@ const ParallelCoordinatesPlot: React.FC = () => {
               type="number"
               value={sampleSize}
               onChange={(e) =>
-                setSampleSize(Math.max(100, Math.min(5000, parseInt(e.target.value) || 1000)))
+                setSampleSize(
+                  Math.max(100, Math.min(5000, parseInt(e.target.value) || 1000))
+                )
               }
               className="ml-2 px-2 py-1 border rounded"
             />
@@ -227,7 +229,19 @@ const ParallelCoordinatesPlot: React.FC = () => {
             {/* Axes */}
             {dimensions.map((dim) => (
               <Group key={dim} left={xScale(dim) || 0}>
-                <AxisLeft scale={yScales[dim] as any} label={dim} />
+                <AxisLeft scale={yScales[dim] as any} />
+                {/* Custom label */}
+                <text
+                  x={0}
+                  y={-10}
+                  textAnchor="middle"
+                  fontSize={12}
+                  fill="black"
+                  style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                  onClick={() => handleDimensionClick(dim)}
+                >
+                  {dim}
+                </text>
               </Group>
             ))}
 
@@ -259,7 +273,7 @@ const ParallelCoordinatesPlot: React.FC = () => {
                         y={y}
                         width={barWidth}
                         height={height}
-                        fill={isBarSelected(dim, [x0, x1]) ? "steelblue" : "#ccc"}
+                        fill={isBarSelected(dim, [x0, x1]) ? 'steelblue' : '#ccc'}
                         opacity={isBarSelected(dim, [x0, x1]) ? 0.8 : 0.5}
                         onClick={() => updateFilters(dim, [x0, x1])}
                         className="cursor-pointer hover:opacity-75"
@@ -272,7 +286,7 @@ const ParallelCoordinatesPlot: React.FC = () => {
                     label={dim}
                     tickLabelProps={() => ({
                       fontSize: 10,
-                      textAnchor: "middle",
+                      textAnchor: 'middle',
                     })}
                   />
                 </Group>

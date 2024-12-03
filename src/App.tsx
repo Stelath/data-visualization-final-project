@@ -6,7 +6,10 @@ import InteractiveBarChart from '@/components/interactive-bar-chart';
 import { MissingPersonsProvider } from '@/context/MissingPersonsContext';
 import './App.css';
 
-type Dimension = 'age' | 'height' | 'weight' | 'yearsMissing';
+type Dimension = {
+  name: string;
+  kind: 'numerical' | 'categorical';
+};
 
 function App() {
   const [selectedDimension, setSelectedDimension] = useState<Dimension | null>(null);
@@ -14,6 +17,7 @@ function App() {
   const handleDimensionClick = (dimension: Dimension) => {
     setSelectedDimension(dimension);
   };
+
 
   return (
     <MissingPersonsProvider>

@@ -242,7 +242,7 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
               type="number"
               value={sampleSize}
               onChange={(e) =>
-                setSampleSize(Math.max(100, Math.min(5000, parseInt(e.target.value) || 1000)))
+                setSampleSize(Math.max(100, Math.min(fullPlotData.length, parseInt(e.target.value) || 1000)))
               }
               className="ml-2 px-2 py-1 border rounded"
             />

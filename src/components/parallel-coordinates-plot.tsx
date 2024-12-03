@@ -317,7 +317,7 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                 return (
                   <Group
                     key={dim.name}
-                    top={mainHeight}
+                    top={mainHeight - 15}
                     left={(dimIndex * columnWidth) + histogramLeft}
                   >
                     {bins.map((b, binIndex) => {
@@ -347,7 +347,7 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                         range: [0, histogramWidth]
                       })}
                       top={histogramHeight}
-                      label={dim.name}
+                      numTicks={5} // Reduced number of ticks for numerical data
                       tickLabelProps={() => ({
                         fontSize: 10,
                         textAnchor: 'middle',
@@ -368,7 +368,7 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                 return (
                   <Group
                     key={dim.name}
-                    top={mainHeight}
+                    top={mainHeight - 15}
                     left={(dimIndex * columnWidth) + histogramLeft}
                   >
                     {categories.map((category, catIndex) => {
@@ -396,12 +396,26 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                         range: [0, histogramWidth]
                       })}
                       top={histogramHeight}
-                      label={dim.name}
                       tickLabelProps={() => ({
                         fontSize: 8,
-                        textAnchor: 'middle',
+                        textAnchor: 'end',
                       })}
+                      tickComponent={({ x, y, formattedValue }) => (
+                        <text
+                          x={x}
+                          y={y}
+                          transform={`rotate(-45, ${x}, ${y})`}
+                          dy="-0.3em"
+                          dx="-0.3em"
+                          fontSize={8}
+                          textAnchor="end"
+                        >
+                          {formattedValue}
+                        </text>
+                      )}
                     />
+
+
                   </Group>
                 );
               }

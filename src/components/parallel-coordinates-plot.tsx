@@ -97,16 +97,18 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
   }, [missingPersonsData]);
 
   const sampledPlotData = useMemo(() => {
-    if (!filteredIndices) return [];
-    const step = Math.max(1, Math.floor(filteredIndices.length / sampleSize));
-    return filteredIndices
+    const step = Math.max(1, Math.floor(fullPlotData.length / sampleSize));
+    return fullPlotData
+      .map((d, index) => ({
+        ...d,
+        isFiltered: filteredIndices?.includes(index) || false
+      }))
       .filter((_, idx) => idx % step === 0)
-      .map((index) => fullPlotData[index])
       .filter(
-        (d): d is PlotDataPoint =>
+        (d): d is PlotDataPoint & { isFiltered: boolean } =>
           dimensions.every((dim) => d[dim.name] !== undefined)
       );
-  }, [filteredIndices, sampleSize, fullPlotData]);
+  }, [filteredIndices, sampleSize, fullPlotData]);  
 
   const xScale = useMemo(
     () =>
@@ -259,26 +261,32 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
         >
           <Group top={margin.top} left={margin.left}>
             {/* Parallel Coordinates Plot */}
-            {sampledPlotData.map((d, i) => (
-              <LinePath<{ x: number; y: number }>
-                key={i}
-                data={dimensions.map((dim) => {
-                  const x = xScale(dim.name) || 0;
-                  let y;
-                  if (dim.kind === 'numerical') {
-                    y = (yScales[dim.name] as ScaleLinear<number, number>)(d[dim.name] as number);
-                  } else {
-                    y = (yScales[dim.name] as ScalePoint<string>)(d[dim.name] as string) || 0;
-                  }
-                  return { x, y };
-                })}
-                x={(p) => p.x}
-                y={(p) => p.y}
-                stroke={d.gender.toLowerCase().includes('female') ? '#FF69B4' : '#4169E1'}
-                strokeWidth={1}
-                strokeOpacity={0.2}
-              />
-            ))}
+            {sampledPlotData.map((d, i) => {
+              // Check if the point's index is in filteredIndices
+              const isFiltered = filteredIndices.includes(d.index);
+
+              return (
+                <LinePath<{ x: number; y: number }>
+                  key={i}
+                  data={dimensions.map((dim) => {
+                    const x = xScale(dim.name) || 0;
+                    let y;
+                    if (dim.kind === 'numerical') {
+                      y = (yScales[dim.name] as ScaleLinear<number, number>)(d[dim.name] as number);
+                    } else {
+                      y = (yScales[dim.name] as ScalePoint<string>)(d[dim.name] as string) || 0;
+                    }
+                    return { x, y };
+                  })}
+                  x={(p) => p.x}
+                  y={(p) => p.y}
+                  stroke={d.gender.toLowerCase().includes('female') ? '#FF69B4' : '#4169E1'}
+                  strokeWidth={1}
+                  strokeOpacity={isFiltered ? 0.2 : 0.01} // Lower opacity for filtered out lines
+                />
+              );
+            })}
+
   
             {/* Axes */}
             {dimensions.map((dim) => (

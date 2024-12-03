@@ -25,8 +25,8 @@ function App() {
             </CardContent>
           </Card>
           
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="w-full h-full">
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="w-full h-full col-span-2">
               <CardContent className="p-4">
                 <ParallelCoordinatesPlot onDimensionClick={handleDimensionClick} />
               </CardContent>

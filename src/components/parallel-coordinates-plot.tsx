@@ -10,7 +10,7 @@ import { extent, bin } from 'd3-array';
 // Re order age, next to years missing
 // Set age to age gone missing
 
-type Dimension = 'age' | 'height' | 'weight' | 'yearsMissing';
+type Dimension = 'age' | 'height' | 'weight' | 'yearsMissing' | 'eyeColor' | 'race' | 'gender';
 type PlotDataPoint = {
   index: number;
   age: number;
@@ -33,7 +33,7 @@ interface ParallelCoordinatesPlotProps {
   onDimensionClick?: (dimension: Dimension) => void;
 }
 
-const dimensions: Dimension[] = ['age', 'height', 'weight', 'yearsMissing'];
+const dimensions: Dimension[] = ['age', 'yearsMissing', 'height', 'weight', 'eyeColor', 'race', 'gender'];
 
 const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({ onDimensionClick }) => {
   const { missingPersonsData, filteredIndices, setFilteredIndices, loading } = useMissingPersonsData();
@@ -55,6 +55,7 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({ onDim
       age: d.subjectIdentification?.computedMissingMinAge || 0,
       height: d.subjectDescription?.heightFrom || 0,
       weight: d.subjectDescription?.weightFrom || 0,
+      eyeColor: d.physicalDescription?.rightEyeColor?.localizedName || 'Unknown',
       yearsMissing:
         (Date.now() - new Date(d.sighting?.date || Date.now()).getTime()) / (1000 * 3600 * 24 * 365),
       gender: d.subjectDescription?.sex?.localizedName || 'Unknown',
@@ -220,7 +221,7 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({ onDim
                 }))}
                 x={(p) => p.x}
                 y={(p) => p.y}
-                stroke="steelblue"
+                stroke={d.gender.toLowerCase().includes('female') ? '#FF69B4' : '#4169E1'} 
                 strokeWidth={1}
                 strokeOpacity={0.2}
               />

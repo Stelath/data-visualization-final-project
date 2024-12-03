@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, MouseEvent } from 'react';
 import { ScaleLinear, ScalePoint } from 'd3-scale';
 import { scalePoint, scaleLinear, scaleBand } from '@visx/scale';
 import { LinePath } from '@visx/shape';
@@ -47,10 +47,12 @@ type HistogramScale = {
 
 interface ParallelCoordinatesPlotProps {
   onDimensionClick?: (dimension: Dimension) => void;
+  onPersonSelect?: (personData: PlotDataPoint) => void; // New prop
 }
 
 const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
   onDimensionClick,
+  onPersonSelect,
 }) => {
   const {
     missingPersonsData,
@@ -283,6 +285,8 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                   stroke={d.gender.toLowerCase().includes('female') ? '#FF69B4' : '#4169E1'}
                   strokeWidth={1}
                   strokeOpacity={isFiltered ? 0.2 : 0.01} // Lower opacity for filtered out lines
+                  onClick={() => onPersonSelect && onPersonSelect(d)} // Add onClick handler
+                  style={{ cursor: 'pointer' }} // Change cursor to pointer
                 />
               );
             })}

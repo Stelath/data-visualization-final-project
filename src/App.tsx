@@ -4,6 +4,7 @@ import StateChoroplethMap from '@/components/county-choropleth-map';
 import ParallelCoordinatesPlot from '@/components/parallel-coordinates-plot';
 import InteractiveBarChart from '@/components/interactive-bar-chart';
 import { MissingPersonsProvider } from '@/context/MissingPersonsContext';
+import PersonDetails from '@/components/person-details';
 import './App.css';
 
 type Dimension = {
@@ -13,9 +14,15 @@ type Dimension = {
 
 function App() {
   const [selectedDimension, setSelectedDimension] = useState<Dimension | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<any>(null);
 
   const handleDimensionClick = (dimension: Dimension) => {
     setSelectedDimension(dimension);
+    setSelectedPerson(null); // Reset selected person when dimension is clicked
+  };
+
+  const handlePersonSelect = (personData: any) => {
+    setSelectedPerson(personData);
   };
 
 
@@ -71,13 +78,23 @@ function App() {
           <div className="grid grid-cols-3 gap-2 min-h-0">
             <Card className="col-span-2 min-h-0">
               <CardContent className="h-full p-4 overflow-hidden">
-                <ParallelCoordinatesPlot onDimensionClick={handleDimensionClick} />
+                <ParallelCoordinatesPlot
+                  onDimensionClick={handleDimensionClick}
+                  onPersonSelect={handlePersonSelect} // Pass the handler
+                />
               </CardContent>
             </Card>
-            
+
             <Card className="min-h-0">
               <CardContent className="h-full p-4 overflow-hidden">
-                <InteractiveBarChart selectedDimension={selectedDimension} />
+                {selectedPerson ? (
+                  <PersonDetails
+                    person={selectedPerson}
+                    onBack={() => setSelectedPerson(null)} // Handler to go back
+                  />
+                ) : (
+                  <InteractiveBarChart selectedDimension={selectedDimension} />
+                )}
               </CardContent>
             </Card>
           </div>

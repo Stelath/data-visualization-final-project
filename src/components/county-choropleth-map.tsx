@@ -132,9 +132,9 @@ const CountyChoroplethMap: React.FC = () => {
 
   const colorScale = scaleSequential(interpolateBlues).domain([0, maxRate]);
 
-  const width = 960;
-  const height = 420;
-  const scale = 900;
+  const width = 850;
+  const height = 390;
+  const scale = 800;
 
   const projection = geoAlbersUsa()
     .translate([width / 2, height / 2])

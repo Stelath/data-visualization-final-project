@@ -65,7 +65,7 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
 
   const margin = { top: 20, right: 40, bottom: 200, left: 60 };
   const plotWidth = 900 - margin.left - margin.right;
-  const plotHeight = 300 - margin.top - margin.bottom;
+  const plotHeight = 275 - margin.top - margin.bottom;
   const mainHeight = 200;
   const histogramHeight = 100;
 

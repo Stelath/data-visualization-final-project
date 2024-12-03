@@ -17,17 +17,17 @@ function App() {
 
   return (
     <MissingPersonsProvider>
-      <div className="min-h-screen bg-background p-4">
-        <div className="grid grid-rows-[55%_45%] gap-4 h-[calc(100vh-2rem)]">
-          <div className="grid grid-cols-3 gap-4">
-            <Card className="w-full h-full col-span-2">
-              <CardContent className="p-4">
+      <div className="h-screen overflow-hidden bg-background p-2">
+        <div className="grid h-full grid-rows-[47%_53%] gap-2">
+          <div className="grid grid-cols-3 gap-2 min-h-0">
+            <Card className="col-span-2 min-h-0">
+              <CardContent className="h-full overflow-hidden">
                 <StateChoroplethMap />
               </CardContent>
             </Card>
             
-            <Card className="w-full h-full">
-              <CardHeader>
+            <Card className="min-h-0">
+              <CardHeader className="p-4">
                 <CardTitle className="text-3xl font-bold mb-2">Missing Persons Visualization</CardTitle>
                 <div className="space-y-4">
                   <div>
@@ -64,15 +64,15 @@ function App() {
             </Card>
           </div>
           
-          <div className="grid grid-cols-3 gap-4">
-            <Card className="w-full h-full col-span-2">
-              <CardContent className="p-4">
+          <div className="grid grid-cols-3 gap-2 min-h-0">
+            <Card className="col-span-2 min-h-0">
+              <CardContent className="h-full p-4 overflow-hidden">
                 <ParallelCoordinatesPlot onDimensionClick={handleDimensionClick} />
               </CardContent>
             </Card>
             
-            <Card className="w-full h-full">
-              <CardContent className="p-4">
+            <Card className="min-h-0">
+              <CardContent className="h-full p-4 overflow-hidden">
                 <InteractiveBarChart selectedDimension={selectedDimension} />
               </CardContent>
             </Card>

@@ -167,8 +167,8 @@ const InteractiveBarChart: React.FC<InteractiveBarChartProps> = ({ selectedDimen
     }
 
     // Set up chart dimensions and scales
-    const width = 600;
-    const height = 300;
+    const width = 450;
+    const height = 400;
     const margin = { top: 20, right: 30, bottom: 100, left: 60 };
 
     const xScale = scaleBand<string>({

@@ -6,7 +6,7 @@ interface PersonDetailsProps {
   onBack: () => void;
 }
 
-const PersonDetails: React.FC<PersonDetailsProps> = ({ person, onBack }) => {
+const PersonDetails: React.FC<PersonDetailsProps> = ({ person }) => {
   const { missingPersonsData } = useMissingPersonsData();
 
   // Get the full data of the person using the index

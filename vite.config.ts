@@ -4,7 +4,7 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: "/data-visualization-final-project",
+  base: "./data-visualization-final-project",
   plugins: [react()],
   resolve: {
     alias: {

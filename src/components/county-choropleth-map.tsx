@@ -37,10 +37,10 @@ const CountyChoroplethMap: React.FC = () => {
     x: number;
     y: number;
   } | null>(null);
-  const [selectedCounty, setSelectedCounty] = useState<{
+  const [selectedCounties, setSelectedCounties] = useState<Array<{
     name: string;
     state: string;
-  } | null>(null);
+  }>>([]);
 
   // Fetch GeoJSON data
   useEffect(() => {
@@ -105,7 +105,7 @@ const CountyChoroplethMap: React.FC = () => {
       const key = `${countyName}, ${stateName}`;
       const count = countyCounts[key] || 0;
       const population = populationData[key] || 1;
-      const rate = (count / population) * 100000; // Rate per 100,000 people
+      const rate = (count / population) * 100000;
       
       return {
         ...feature,
@@ -127,33 +127,49 @@ const CountyChoroplethMap: React.FC = () => {
   const handleCountyClick = (feature: GeoFeature) => {
     if (!missingPersonsData) return;
     
-    const clickedCounty = feature.properties.NAME;
+    const clickedCounty = feature.properties.NAMELSAD;
     const clickedState = feature.properties.STATE;
 
-    // If clicking the already selected county, clear the selection
-    if (selectedCounty?.name === clickedCounty && selectedCounty?.state === clickedState) {
-      setSelectedCounty(null);
+    let newSelectedCounties;
+    const isSelected = selectedCounties.some(
+      county => county.name === clickedCounty && county.state === clickedState
+    );
+
+    if (isSelected) {
+      // Remove county if already selected
+      newSelectedCounties = selectedCounties.filter(
+        county => !(county.name === clickedCounty && county.state === clickedState)
+      );
+    } else {
+      // Add county to selection
+      newSelectedCounties = [...selectedCounties, { name: clickedCounty, state: clickedState }];
+    }
+
+    setSelectedCounties(newSelectedCounties);
+
+    if (newSelectedCounties.length === 0) {
+      // If no counties selected, show all data
       setFilteredIndices(missingPersonsData.map((_, index) => index));
       return;
     }
 
-    // Set the new selected county
-    setSelectedCounty({
-      name: clickedCounty,
-      state: clickedState,
-    });
-
-    // Filter indices to only include cases from the selected county
+    // Filter for any selected county
     const newFilteredIndices = missingPersonsData.reduce((indices: number[], person, index) => {
       const personCounty = person.sighting?.address?.county?.name;
       const personState = person.sighting?.address?.state?.name;
-      
-      if (personCounty === clickedCounty && personState === clickedState) {
+
+      const isInSelectedCounty = newSelectedCounties.some(selectedCounty => {
+        const normalizedSelectedCounty = selectedCounty.name.replace(" County", "").toLowerCase();
+        const normalizedPersonCounty = personCounty ? personCounty.replace(" County", "").toLowerCase() : "";
+        return normalizedPersonCounty === normalizedSelectedCounty && personState === selectedCounty.state;
+      });
+
+      if (isInSelectedCounty) {
         indices.push(index);
       }
       return indices;
     }, []);
-    
+
     setFilteredIndices(newFilteredIndices);
   };
 
@@ -197,21 +213,23 @@ const CountyChoroplethMap: React.FC = () => {
   return (
     <div className="relative font-sans">
       <div className="absolute top-0 left-0 z-10 p-2 text-sm text-gray-600 bg-white bg-opacity-90 rounded">
-        {selectedCounty ? (
-          <span>
-            Showing cases in {selectedCounty.name}, {selectedCounty.state} 
+        {selectedCounties.length > 0 ? (
+          <div>
+            <span>
+              Showing cases in {selectedCounties.map(county => `${county.name}, ${county.state}`).join(' and ')}
+            </span>
             <button 
               onClick={() => {
-                setSelectedCounty(null);
+                setSelectedCounties([]);
                 setFilteredIndices(missingPersonsData.map((_, index) => index));
               }}
               className="ml-2 px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300"
             >
-              Clear Selection
+              Clear Selection{selectedCounties.length > 1 ? 's' : ''}
             </button>
-          </span>
+          </div>
         ) : (
-          <span>Click on a county to filter cases</span>
+          <span>Click on counties to filter cases (click multiple for multi-select)</span>
         )}
       </div>
 
@@ -221,9 +239,11 @@ const CountyChoroplethMap: React.FC = () => {
             {mergedData.features.map((feature, i) => {
               const path = pathGenerator(feature.geometry);
               const rate = feature.properties.rate || 0;
-              const isSelected = selectedCounty?.name === feature.properties.NAME && 
-                               selectedCounty?.state === feature.properties.STATE;
-  
+              const isSelected = selectedCounties.some(
+                county => county.name === feature.properties.NAMELSAD && 
+                         county.state === feature.properties.STATE
+              );
+
               return (
                 <path
                   key={`path-${i}`}

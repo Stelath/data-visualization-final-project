@@ -264,7 +264,6 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
           <Group top={margin.top} left={margin.left}>
             {/* Parallel Coordinates Plot */}
             {sampledPlotData.map((d, i) => {
-              // Check if the point's index is in filteredIndices
               const isFiltered = filteredIndices.includes(d.index);
 
               return (
@@ -282,11 +281,11 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                   })}
                   x={(p) => p.x}
                   y={(p) => p.y}
-                  stroke={d.gender.toLowerCase().includes('female') ? '#FF69B4' : '#4169E1'}
+                  stroke={isFiltered ? (d.gender.toLowerCase().includes('female') ? '#FF69B4' : '#4169E1') : '#A9A9A9'}
                   strokeWidth={1}
-                  strokeOpacity={isFiltered ? 0.2 : 0.01} // Lower opacity for filtered out lines
-                  onClick={() => onPersonSelect && onPersonSelect(d)} // Add onClick handler
-                  style={{ cursor: 'pointer' }} // Change cursor to pointer
+                  strokeOpacity={isFiltered ? 0.2 : 0.01}
+                  onClick={() => onPersonSelect && onPersonSelect(d)}
+                  style={{ cursor: 'pointer' }}
                 />
               );
             })}

@@ -23,7 +23,7 @@ interface GeoData {
 }
 
 const CountyChoroplethMap: React.FC = () => {
-  const { missingPersonsData, filteredIndices, loading } = useMissingPersonsData();
+  const { missingPersonsData, filteredIndices, setFilteredIndices, loading } = useMissingPersonsData();
   const [geoData, setGeoData] = useState<GeoData | null>(null);
   const [mergedData, setMergedData] = useState<GeoData | null>(null);
   const [geoLoading, setGeoLoading] = useState(true);
@@ -36,6 +36,10 @@ const CountyChoroplethMap: React.FC = () => {
     rate: number;
     x: number;
     y: number;
+  } | null>(null);
+  const [selectedCounty, setSelectedCounty] = useState<{
+    name: string;
+    state: string;
   } | null>(null);
 
   // Fetch GeoJSON data
@@ -77,7 +81,6 @@ const CountyChoroplethMap: React.FC = () => {
       geoLoading ||
       loading ||
       !geoData ||
-      !filteredIndices ||
       !missingPersonsData ||
       Object.keys(populationData).length === 0
     ) {
@@ -86,8 +89,7 @@ const CountyChoroplethMap: React.FC = () => {
 
     const countyCounts: { [key: string]: number } = {};
 
-    filteredIndices.forEach((index) => {
-      const entry = missingPersonsData[index];
+    missingPersonsData.forEach((entry) => {
       const county = entry.sighting?.address?.county?.name || "Unknown";
       const state = entry.sighting?.address?.state?.name || "Unknown";
 
@@ -120,26 +122,40 @@ const CountyChoroplethMap: React.FC = () => {
       ...geoData,
       features: featuresWithCounts,
     });
-  }, [geoData, filteredIndices, geoLoading, loading, missingPersonsData, populationData]);
+  }, [geoData, loading, missingPersonsData, populationData, geoLoading]);
 
-  if (geoLoading || loading || !mergedData) {
-    return <div>Loading...</div>;
-  }
+  const handleCountyClick = (feature: GeoFeature) => {
+    if (!missingPersonsData) return;
+    
+    const clickedCounty = feature.properties.NAME;
+    const clickedState = feature.properties.STATE;
 
-  const counts = mergedData.features.map((f) => f.properties.rate || 0);
-  // const maxRate = Math.max(...counts);
-  const maxRate = 250
+    // If clicking the already selected county, clear the selection
+    if (selectedCounty?.name === clickedCounty && selectedCounty?.state === clickedState) {
+      setSelectedCounty(null);
+      setFilteredIndices(missingPersonsData.map((_, index) => index));
+      return;
+    }
 
-  const colorScale = scaleSequential(interpolateBlues).domain([0, maxRate]);
+    // Set the new selected county
+    setSelectedCounty({
+      name: clickedCounty,
+      state: clickedState,
+    });
 
-  const width = 850;
-  const height = 390;
-  const scale = 800;
-
-  const projection = geoAlbersUsa()
-    .translate([width / 2, height / 2])
-    .scale(scale);
-  const pathGenerator = geoPath().projection(projection);
+    // Filter indices to only include cases from the selected county
+    const newFilteredIndices = missingPersonsData.reduce((indices: number[], person, index) => {
+      const personCounty = person.sighting?.address?.county?.name;
+      const personState = person.sighting?.address?.state?.name;
+      
+      if (personCounty === clickedCounty && personState === clickedState) {
+        indices.push(index);
+      }
+      return indices;
+    }, []);
+    
+    setFilteredIndices(newFilteredIndices);
+  };
 
   const handleMouseMove = (
     event: React.MouseEvent,
@@ -164,63 +180,102 @@ const CountyChoroplethMap: React.FC = () => {
     return <div>Loading...</div>;
   }
 
+  const counts = mergedData.features.map((f) => f.properties.rate || 0);
+  const maxRate = 250;
+
+  const colorScale = scaleSequential(interpolateBlues).domain([0, maxRate]);
+
+  const width = 850;
+  const height = 390;
+  const scale = 800;
+
+  const projection = geoAlbersUsa()
+    .translate([width / 2, height / 2])
+    .scale(scale);
+  const pathGenerator = geoPath().projection(projection);
+
   return (
-    <div className="relative font-sans flex justify-center">
-      <svg width={width} height={height}>
-        <Group>
-          {mergedData.features.map((feature, i) => {
-            const path = pathGenerator(feature.geometry);
-            const rate = feature.properties.rate || 0;
+    <div className="relative font-sans">
+      <div className="absolute top-0 left-0 z-10 p-2 text-sm text-gray-600 bg-white bg-opacity-90 rounded">
+        {selectedCounty ? (
+          <span>
+            Showing cases in {selectedCounty.name}, {selectedCounty.state} 
+            <button 
+              onClick={() => {
+                setSelectedCounty(null);
+                setFilteredIndices(missingPersonsData.map((_, index) => index));
+              }}
+              className="ml-2 px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300"
+            >
+              Clear Selection
+            </button>
+          </span>
+        ) : (
+          <span>Click on a county to filter cases</span>
+        )}
+      </div>
+
+      <div className="flex justify-center">
+        <svg width={width} height={height}>
+          <Group>
+            {mergedData.features.map((feature, i) => {
+              const path = pathGenerator(feature.geometry);
+              const rate = feature.properties.rate || 0;
+              const isSelected = selectedCounty?.name === feature.properties.NAME && 
+                               selectedCounty?.state === feature.properties.STATE;
   
-            return (
-              <path
-                key={`path-${i}`}
-                d={path || undefined}
-                fill={rate > 0 ? colorScale(rate) : "#EEE"}
-                stroke="#fff"
-                strokeWidth={0.5}
-                onMouseMove={(e) => handleMouseMove(e, feature)}
-                onMouseLeave={handleMouseLeave}
-              />
-            );
-          })}
-        </Group>
-  
-        {/* Color Scale Legend */}
-        <g transform={`translate(${width - 100}, ${height / 4})`}>
-          {Array.from({length: 10}, (_, i) => {
-            const value = (maxRate / 9) * i;
-            return (
-              <g key={i} transform={`translate(0, ${i * 20})`}>
-                <rect
-                  width={20}
-                  height={20}
-                  fill={colorScale(value)}
-                  stroke="#fff"
-                  strokeWidth={0.5}
+              return (
+                <path
+                  key={`path-${i}`}
+                  d={path || undefined}
+                  fill={rate > 0 ? colorScale(rate) : "#EEE"}
+                  stroke={isSelected ? "#FF0000" : "#fff"}
+                  strokeWidth={isSelected ? 2 : 0.5}
+                  onMouseMove={(e) => handleMouseMove(e, feature)}
+                  onMouseLeave={handleMouseLeave}
+                  onClick={() => handleCountyClick(feature)}
+                  style={{ cursor: 'pointer' }}
                 />
-                <text
-                  x={25}
-                  y={15}
-                  fontSize={10}
-                  fill="gray"
-                >
-                  {value.toFixed(2)}
-                </text>
-              </g>
-            );
-          })}
-          <text
-            x={10}
-            y={-10}
-            fontSize={12}
-            textAnchor="middle"
-            fill="gray"
-          >
-            Rate
-          </text>
-        </g>
-      </svg>
+              );
+            })}
+          </Group>
+  
+          {/* Color Scale Legend */}
+          <g transform={`translate(${width - 100}, ${height / 4})`}>
+            {Array.from({length: 10}, (_, i) => {
+              const value = (maxRate / 9) * i;
+              return (
+                <g key={i} transform={`translate(0, ${i * 20})`}>
+                  <rect
+                    width={20}
+                    height={20}
+                    fill={colorScale(value)}
+                    stroke="#fff"
+                    strokeWidth={0.5}
+                  />
+                  <text
+                    x={25}
+                    y={15}
+                    fontSize={10}
+                    fill="gray"
+                  >
+                    {value.toFixed(2)}
+                  </text>
+                </g>
+              );
+            })}
+            <text
+              x={10}
+              y={-10}
+              fontSize={12}
+              textAnchor="middle"
+              fill="gray"
+            >
+              Rate
+            </text>
+          </g>
+        </svg>
+      </div>
 
       {hoveredCounty && (
         <div

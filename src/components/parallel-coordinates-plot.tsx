@@ -323,9 +323,11 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                 const binGenerator = bin()
                   .domain((yScales[dim.name] as ScaleLinear<number, number>).domain())
                   .thresholds(20);
-                const bins = binGenerator(fullPlotData.map((d) => d[dim.name] as number));
+                const values = fullPlotData.map((d) => d[dim.name] as number);
+                const bins = binGenerator(values);
                 const barWidth = histogramWidth / bins.length;
-
+                const maxBinLength = Math.max(...bins.map(b => b.length));
+                
                 return (
                   <Group
                     key={dim.name}
@@ -336,8 +338,11 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                       const x0 = b.x0 ?? 0;
                       const x1 = b.x1 ?? 0; 
                       const x = binIndex * barWidth;
-                      const y = histogramHeight * (1 - b.length / fullPlotData.length);
-                      const height = histogramHeight - y;
+                      // Scale the height using a blend of both approaches
+                      const binProportion = b.length / fullPlotData.length;
+                      const scaledHeight = binProportion * histogramHeight * bins.length * 0.10;
+                      const height = Math.min(scaledHeight, histogramHeight);
+                      const y = histogramHeight - height;
 
                       return (
                         <rect
@@ -359,7 +364,7 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                         range: [0, histogramWidth]
                       })}
                       top={histogramHeight}
-                      numTicks={5} // Reduced number of ticks for numerical data
+                      numTicks={5}
                       tickLabelProps={() => ({
                         fontSize: 10,
                         textAnchor: 'middle',

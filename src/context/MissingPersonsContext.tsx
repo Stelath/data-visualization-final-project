@@ -35,7 +35,7 @@ export const MissingPersonsProvider: React.FC<{ children: React.ReactNode }> = (
           const age = record.subjectIdentification?.computedMissingMinAge || 0;
           const weight = record.subjectDescription?.weightFrom || 0;
           const height = record.subjectDescription?.heightFrom || 0;
-          return weight <= 400 && height <= 200 && age <= 115;
+          return weight <= 400 && height <= 100 && age <= 115;
         });
         
         setMissingPersonsData(filteredData);

@@ -34,8 +34,8 @@ const dimensions: Dimension[] = [
   { name: 'age', kind: 'numerical' },
   { name: 'yearsMissing', kind: 'numerical' },
   { name: 'height', kind: 'numerical' },
-  { name: 'weight', kind: 'numerical' },
   { name: 'eyeColor', kind: 'categorical' },
+  { name: 'weight', kind: 'numerical' },
   { name: 'race', kind: 'categorical' },
 ];
 

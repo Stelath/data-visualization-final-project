@@ -1,4 +1,3 @@
-// src/components/interactive-bar-chart.tsx
 import React, { useEffect, useState } from 'react';
 import { useMissingPersonsData } from '@/context/MissingPersonsContext';
 import { Bar } from '@visx/shape';
@@ -17,52 +16,28 @@ interface InteractiveBarChartProps {
 }
 
 const InteractiveBarChart: React.FC<InteractiveBarChartProps> = ({ selectedDimension }) => {
-  const { missingPersonsData, filteredIndices, loading } = useMissingPersonsData();
+  const { fullPlotData, filteredIndices, loading } = useMissingPersonsData();
   const [data, setData] = useState<number[]>([]);
-  const [categoricalData, setCategoricalData] = useState<{ category: string; count: number }[]>(
-    []
-  );
+  const [categoricalData, setCategoricalData] = useState<{ category: string; count: number }[]>([]);
   const [nationalAverage, setNationalAverage] = useState<number>(0);
 
   useEffect(() => {
-    if (!selectedDimension || loading || !filteredIndices || !missingPersonsData) {
+    if (!selectedDimension || loading || !filteredIndices || !fullPlotData) {
       setData([]);
       setCategoricalData([]);
       return;
     }
 
-    const getValue = (person: any): number | string | null => {
-      switch (selectedDimension.name) {
-        case 'age':
-          return person.subjectIdentification?.currentMinAge || null;
-        case 'height':
-          return person.subjectDescription?.heightFrom || null;
-        case 'weight':
-          return person.subjectDescription?.weightFrom || null;
-        case 'yearsMissing':
-          return (
-            (Date.now() - new Date(person.sighting?.date || Date.now()).getTime()) /
-            (1000 * 3600 * 24 * 365)
-          );
-        case 'eyeColor':
-          return person.physicalDescription?.leftEyeColor?.localizedName || 'Unknown';
-        case 'race':
-          return person.subjectDescription?.primaryEthnicity?.localizedName || 'Unknown';
-        default:
-          return null;
-      }
-    };
-
     if (selectedDimension.kind === 'numerical') {
       const values = filteredIndices
-        .map((index) => getValue(missingPersonsData[index]) as number)
+        .map((index) => fullPlotData[index][selectedDimension.name] as number)
         .filter((value) => value != null && value > 0);
 
       setData(values);
 
-      const allValues = missingPersonsData
-        .map(getValue)
-        .filter((value) => value != null && value > 0) as number[];
+      const allValues = fullPlotData
+        .map((d) => d[selectedDimension.name] as number)
+        .filter((value) => value != null && value > 0);
 
       const total = allValues.reduce((sum, val) => sum + val, 0);
       const average = total / allValues.length;
@@ -71,18 +46,22 @@ const InteractiveBarChart: React.FC<InteractiveBarChartProps> = ({ selectedDimen
       const categoryCounts: { [key: string]: number } = {};
 
       filteredIndices.forEach((index) => {
-        const value = getValue(missingPersonsData[index]) as string;
-        categoryCounts[value] = (categoryCounts[value] || 0) + 1;
+        const value = fullPlotData[index][selectedDimension.name] as string;
+        if (value) {
+          categoryCounts[value] = (categoryCounts[value] || 0) + 1;
+        }
       });
 
-      const categories = Object.entries(categoryCounts).map(([category, count]) => ({
-        category,
-        count,
-      }));
+      const categories = Object.entries(categoryCounts)
+        .map(([category, count]) => ({
+          category,
+          count,
+        }))
+        .sort((a, b) => b.count - a.count); // Sort by count in descending order
 
       setCategoricalData(categories);
     }
-  }, [selectedDimension, missingPersonsData, filteredIndices, loading]);
+  }, [selectedDimension, fullPlotData, filteredIndices, loading]);
 
   if (!selectedDimension || loading) {
     return <div>Please select a dimension by clicking on it in the parallel coordinates plot.</div>;

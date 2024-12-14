@@ -61,7 +61,12 @@ interface FullPlotDataPoint {
   race: string;
   gender: string;
   state: string;
-  county: string; // Added
+  county: string;
+  firstName: string;
+  lastName: string;
+  photoUrl: string;
+  circumstancesOfDisappearance: string;
+  lastSeenDate: string;
 }
 
 interface MissingPersonsContextProps {
@@ -138,8 +143,13 @@ export const MissingPersonsProvider: React.FC<{ children: React.ReactNode }> = (
             : d.subjectDescription?.primaryEthnicity?.localizedName || 'Unknown',
           gender: d.subjectDescription?.sex?.localizedName || 'Unknown',
           state: d.sighting?.address?.state?.name || 'Unknown',
-          county: d.sighting?.address?.county?.name || 'Unknown', // Added
-        }));
+          county: d.sighting?.address?.county?.name || 'Unknown',
+          firstName: d.subjectIdentification?.firstName || '',
+          lastName: d.subjectIdentification?.lastName || '',
+          photoUrl: d.images && d.images.length > 0 ? `https://namus.gov${d.images[0].files.original.href}` : '',
+          circumstancesOfDisappearance: d.circumstances?.circumstancesOfDisappearance || '',
+          lastSeenDate: d.sighting?.date || '',
+        }));        
 
         setFullPlotData(transformedData);
         setFilteredIndices(transformedData.map((_, index) => index));

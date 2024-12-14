@@ -42,7 +42,7 @@ function App() {
                 <CardTitle className="text-3xl font-bold mb-2">Missing Persons Visualization</CardTitle>
                 <div className="space-y-4">
                   <div>
-                  <p className="text-xl italic">By:</p>
+                    <p className="text-xl italic">By:</p>
                     <p className="text-2xl">Alex Korte</p>
                     <p className="text-2xl">Nolen Schnabel</p>
                   </div>
@@ -65,6 +65,14 @@ function App() {
                         className="text-blue-500 hover:text-blue-700 block"
                       >
                         U.S. Census Bureau (census.gov)
+                      </a>
+                      <a
+                        href="https://vimeo.com/1039141007?share=copy" 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:text-blue-700 block mt-4"
+                      >
+                        Final Project Video
                       </a>
                     </div>
                   </div>

@@ -1,4 +1,6 @@
-import React, { useState, useMemo, MouseEvent } from 'react';
+// ParallelCoordinatesPlot.tsx
+
+import React, { useState, useMemo } from 'react';
 import { ScaleLinear, ScalePoint } from 'd3-scale';
 import { scalePoint, scaleLinear, scaleBand } from '@visx/scale';
 import { LinePath } from '@visx/shape';
@@ -7,16 +9,15 @@ import { AxisLeft, AxisBottom } from '@visx/axis';
 import { useMissingPersonsData } from '@/context/MissingPersonsContext';
 import { extent, bin } from 'd3-array';
 
-// Define dimension kinds
+// Type Definitions
 type DimensionKind = 'numerical' | 'categorical';
 
-// Update Dimension type
 type Dimension = {
   name: string;
   kind: DimensionKind;
 };
 
-type PlotDataPoint = {
+type FullPlotDataPoint = {
   index: number;
   age: number;
   yearsMissing: number;
@@ -26,10 +27,9 @@ type PlotDataPoint = {
   race: string;
   gender: string;
   state: string;
-  [key: string]: number | string;
+  county: string;
 };
 
-// Dimension configurations
 const dimensions: Dimension[] = [
   { name: 'age', kind: 'numerical' },
   { name: 'yearsMissing', kind: 'numerical' },
@@ -40,14 +40,10 @@ const dimensions: Dimension[] = [
 ];
 
 type DimensionScale = ScaleLinear<number, number> | ScalePoint<string>;
-type HistogramScale = {
-  x: DimensionScale;
-  y: ScaleLinear<number, number>;
-};
 
 interface ParallelCoordinatesPlotProps {
   onDimensionClick?: (dimension: Dimension) => void;
-  onPersonSelect?: (personData: PlotDataPoint) => void; // New prop
+  onPersonSelect?: (personData: FullPlotDataPoint) => void;
 }
 
 const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
@@ -55,15 +51,15 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
   onPersonSelect,
 }) => {
   const {
-    missingPersonsData,
+    fullPlotData,
     filteredIndices,
-    setFilteredIndices,
+    filterState,
+    setFilterState,
+    clearAllFilters,
     loading,
   } = useMissingPersonsData();
+  
   const [sampleSize, setSampleSize] = useState(1000);
-  const [selectedRanges, setSelectedRanges] = useState<{
-    [key: string]: ([number, number] | [string])[];
-  }>({});
 
   const margin = { top: 20, right: 40, bottom: 200, left: 60 };
   const plotWidth = 900 - margin.left - margin.right;
@@ -71,46 +67,20 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
   const mainHeight = 200;
   const histogramHeight = 100;
 
-  const fullPlotData = useMemo<PlotDataPoint[]>(() => {
-    if (!missingPersonsData) return [];
-    return missingPersonsData.map((d, index) => ({
-      index,
-      age: d.subjectIdentification?.computedMissingMinAge || 0,
-      yearsMissing:
-        (Date.now() - new Date(d.sighting?.date || Date.now()).getTime()) /
-        (1000 * 3600 * 24 * 365),
-      height: d.subjectDescription?.heightFrom || 0,
-      weight: d.subjectDescription?.weightFrom || 0,
-      eyeColor: d.physicalDescription?.leftEyeColor?.localizedName || 'Unknown',
-      race: d.subjectDescription?.primaryEthnicity?.localizedName === 'Hawaiian / Pacific Islander'
-      ? 'Hawaiian / PI'
-      : d.subjectDescription?.primaryEthnicity?.localizedName === 'Black / African American'
-      ? 'African American' 
-      : d.subjectDescription?.primaryEthnicity?.localizedName === 'American Indian / Alaska Native'
-      ? 'Native Amer'
-      : d.subjectDescription?.primaryEthnicity?.localizedName === 'Hispanic / Latino'
-      ? 'Hispanic'
-      : d.subjectDescription?.primaryEthnicity?.localizedName === 'White / Caucasian'
-      ? 'Caucasian'
-      : d.subjectDescription?.primaryEthnicity?.localizedName || 'Unknown',
-      gender: d.subjectDescription?.sex?.localizedName || 'Unknown',
-      state: d.sighting?.address?.state?.name || 'Unknown',
-    }));
-  }, [missingPersonsData]);
-
   const sampledPlotData = useMemo(() => {
+    if (!fullPlotData) return [];
     const step = Math.max(1, Math.floor(fullPlotData.length / sampleSize));
     return fullPlotData
-      .map((d, index) => ({
-        ...d,
-        isFiltered: filteredIndices?.includes(index) || false
-      }))
       .filter((_, idx) => idx % step === 0)
+      .map((d) => ({
+        ...d,
+        isFiltered: filteredIndices?.includes(d.index) || false
+      }))
       .filter(
-        (d): d is PlotDataPoint & { isFiltered: boolean } =>
+        (d): d is FullPlotDataPoint & { isFiltered: boolean } =>
           dimensions.every((dim) => d[dim.name] !== undefined)
       );
-  }, [filteredIndices, sampleSize, fullPlotData]);  
+  }, [filteredIndices, sampleSize, fullPlotData]);
 
   const xScale = useMemo(
     () =>
@@ -123,6 +93,8 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
   );
 
   const yScales = useMemo(() => {
+    if (!fullPlotData) return {}; // Return an empty object if data is not loaded
+
     const scales: Record<string, DimensionScale> = {};
     dimensions.forEach(({ name, kind }) => {
       if (kind === 'numerical') {
@@ -146,84 +118,61 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
     return scales;
   }, [fullPlotData, mainHeight]);
 
-  const updateFilters = (
-    dimension: string, 
-    range: [number, number] | [string]
-  ) => {
-    const newSelectedRanges = { ...selectedRanges };
-    const dim = dimensions.find(d => d.name === dimension);
-    
-    if (!dim) return;
+  const updateFilters = (dimension: string, range: [number, number] | [string]) => {
+    setFilterState(prevState => {
+      const newDimensions = [...prevState.dimensions];
+      
+      const dimIndex = newDimensions.findIndex(d => d.dimension === dimension);
+      
+      const dim = dimensions.find(d => d.name === dimension);
+      if (!dim) return prevState;
   
-    if (!newSelectedRanges[dimension]) {
-      newSelectedRanges[dimension] = [range];
-    } else {
-      const ranges = newSelectedRanges[dimension];
-      if (ranges) {
-        if (dim.kind === 'numerical') {
-          const rangeIndex = ranges.findIndex(
-            ([min, max]) => min === range[0] && max === range[1]
-          );
-          if (rangeIndex >= 0) {
-            ranges.splice(rangeIndex, 1);
-            if (ranges.length === 0) {
-              delete newSelectedRanges[dimension];
-            }
+      if (dimIndex === -1) {
+        newDimensions.push({
+          dimension,
+          ranges: [range]
+        });
+      } else {
+        const existingFilter = newDimensions[dimIndex];
+        const rangeIndex = existingFilter.ranges.findIndex(r => {
+          if (dim.kind === 'numerical') {
+            const [existingMin, existingMax] = r as [number, number];
+            const [newMin, newMax] = range as [number, number];
+            return Math.abs(existingMin - newMin) < 0.0001 && 
+                   Math.abs(existingMax - newMax) < 0.0001;
           } else {
-            ranges.push(range as [number, number]);
+            return r[0] === range[0];
           }
+        });
+  
+        if (rangeIndex === -1) {
+          existingFilter.ranges.push(range);
         } else {
-          // Handle categorical values
-          const valueIndex = ranges.findIndex(([val]) => val === range[0]);
-          if (valueIndex >= 0) {
-            ranges.splice(valueIndex, 1);
-            if (ranges.length === 0) {
-              delete newSelectedRanges[dimension];
-            }
-          } else {
-            ranges.push(range as [string]);
+          existingFilter.ranges.splice(rangeIndex, 1);
+          if (existingFilter.ranges.length === 0) {
+            newDimensions.splice(dimIndex, 1);
           }
         }
       }
-    }
   
-    setSelectedRanges(newSelectedRanges);
-  
-    let newFilteredIndices = fullPlotData.map((_, index) => index);
-  
-    Object.entries(newSelectedRanges).forEach(([dim, ranges]) => {
-      if (ranges) {
-        const dimension = dimensions.find(d => d.name === dim);
-        if (!dimension) return;
-  
-        newFilteredIndices = newFilteredIndices.filter((index) => {
-          const value = fullPlotData[index][dim];
-          if (dimension.kind === 'numerical') {
-            return ranges.some(
-              ([min, max]) => 
-                (value as number) >= (min as number) && 
-                (value as number) <= (max as number)
-            );
-          } else {
-            // Handle categorical values
-            return ranges.some(([category]) => value === category);
-          }
-        });
-      }
+      return {
+        ...prevState,
+        dimensions: newDimensions
+      };
     });
-  
-    setFilteredIndices(newFilteredIndices);
-  };  
-
-  const clearFilters = () => {
-    setSelectedRanges({});
-    setFilteredIndices(fullPlotData.map((_, index) => index));
   };
 
-  const isBarSelected = (dimension: Dimension, range: [number, number]) => {
-    const ranges = selectedRanges[dimension];
-    if (!ranges) return false;
-    return ranges.some(([min, max]) => min === range[0] && max === range[1]);
+  const isBarSelected = (dimension: string, range: [number, number] | [string]) => {
+    const dimFilter = filterState.dimensions.find(d => d.dimension === dimension);
+    if (!dimFilter) return false;
+    
+    return dimFilter.ranges.some(r => {
+      if (typeof r[0] === 'number') {
+        return Math.abs(r[0] - (range[0] as number)) < 0.0001 &&
+               Math.abs(r[1] - (range[1] as number)) < 0.0001;
+      }
+      return r[0] === (range[0] as string);
+    });
   };
 
   const handleDimensionClick = (dim: Dimension) => {
@@ -251,8 +200,11 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
               className="ml-2 px-2 py-1 border rounded"
             />
           </label>
-          <button onClick={clearFilters} className="ml-4 px-4 py-2 bg-blue-500 text-white rounded">
-            Clear Filters
+          <button 
+            onClick={clearAllFilters} 
+            className="ml-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Clear All Filters
           </button>
         </div>
       </div>
@@ -264,18 +216,28 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
           <Group top={margin.top} left={margin.left}>
             {/* Parallel Coordinates Plot */}
             {sampledPlotData.map((d, i) => {
-              const isFiltered = filteredIndices.includes(d.index);
+              const isFiltered = d.isFiltered;
 
               return (
                 <LinePath<{ x: number; y: number }>
                   key={i}
                   data={dimensions.map((dim) => {
                     const x = xScale(dim.name) || 0;
-                    let y;
+                    let y = 0;
                     if (dim.kind === 'numerical') {
-                      y = (yScales[dim.name] as ScaleLinear<number, number>)(d[dim.name] as number);
+                      const scale = yScales[dim.name] as ScaleLinear<number, number>;
+                      if (scale) {
+                        y = scale(d[dim.name] as number);
+                      } else {
+                        y = 0;
+                      }
                     } else {
-                      y = (yScales[dim.name] as ScalePoint<string>)(d[dim.name] as string) || 0;
+                      const scale = yScales[dim.name] as ScalePoint<string>;
+                      if (scale) {
+                        y = scale(d[dim.name] as string) || 0;
+                      } else {
+                        y = 0;
+                      }
                     }
                     return { x, y };
                   })}
@@ -283,40 +245,45 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                   y={(p) => p.y}
                   stroke={isFiltered ? (d.gender.toLowerCase().includes('female') ? '#FF69B4' : '#4169E1') : '#A9A9A9'}
                   strokeWidth={1}
-                  strokeOpacity={isFiltered ? 0.2 : 0.01}
+                  strokeOpacity={isFiltered ? 0.6 : 0.1}
                   onClick={() => onPersonSelect && onPersonSelect(d)}
                   style={{ cursor: 'pointer' }}
                 />
               );
             })}
 
-  
             {/* Axes */}
             {dimensions.map((dim) => (
               <Group key={dim.name} left={xScale(dim.name) || 0}>
-                <AxisLeft
-                  scale={yScales[dim.name] as any}
-                  numTicks={dim.kind === 'categorical' ? undefined : 5}
-                />
-                <text
-                  x={0}
-                  y={-10}
-                  textAnchor="middle"
-                  fontSize={12}
-                  fill="black"
-                  style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                  onClick={() => handleDimensionClick(dim)}
-                >
-                  {dim.name}
-                </text>
+                {yScales[dim.name] ? (
+                  <>
+                    <AxisLeft
+                      scale={yScales[dim.name] as any}
+                      numTicks={dim.kind === 'categorical' ? undefined : 5}
+                    />
+                    <text
+                      x={0}
+                      y={-10}
+                      textAnchor="middle"
+                      fontSize={12}
+                      fill="black"
+                      style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => handleDimensionClick(dim)}
+                    >
+                      {dim.name}
+                    </text>
+                  </>
+                ) : null}
               </Group>
             ))}
-  
+
             {/* Histograms */}
             {dimensions.map((dim, dimIndex) => {
+              if (!yScales[dim.name]) return null; // Ensure yScale exists
+
               const columnWidth = plotWidth / dimensions.length;
-              const histogramWidth = columnWidth * 0.8; // Make histogram 50% of column width 
-              const histogramLeft = (columnWidth - histogramWidth) / 2; // Center histogram in column
+              const histogramWidth = columnWidth * 0.8;
+              const histogramLeft = (columnWidth - histogramWidth) / 2;
 
               if (dim.kind === 'numerical') {
                 const binGenerator = bin()
@@ -325,7 +292,6 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                 const values = fullPlotData.map((d) => d[dim.name] as number);
                 const bins = binGenerator(values);
                 const barWidth = histogramWidth / bins.length;
-                const maxBinLength = Math.max(...bins.map(b => b.length));
                 
                 return (
                   <Group
@@ -335,9 +301,8 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                   >
                     {bins.map((b, binIndex) => {
                       const x0 = b.x0 ?? 0;
-                      const x1 = b.x1 ?? 0; 
+                      const x1 = b.x1 ?? 0;
                       const x = binIndex * barWidth;
-                      // Scale the height using a blend of both approaches
                       const binProportion = b.length / fullPlotData.length;
                       const scaledHeight = binProportion * histogramHeight * bins.length * 0.10;
                       const height = Math.min(scaledHeight, histogramHeight);
@@ -374,7 +339,7 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
               } else {
                 const categories = Array.from(new Set(fullPlotData.map((d) => d[dim.name] as string)));
                 const categoryCounts = fullPlotData.reduce((acc, d) => {
-                  const category = d[dim.name] as string;  
+                  const category = d[dim.name] as string;
                   acc[category] = (acc[category] || 0) + 1;
                   return acc;
                 }, {} as Record<string, number>);
@@ -389,8 +354,9 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                   >
                     {categories.map((category, catIndex) => {
                       const x = catIndex * barWidth;
-                      const y = histogramHeight * (1 - categoryCounts[category] / fullPlotData.length);
-                      const height = histogramHeight - y;
+                      const count = categoryCounts[category] || 0;
+                      const height = (count / fullPlotData.length) * histogramHeight;
+                      const y = histogramHeight - height;
 
                       return (
                         <rect
@@ -430,8 +396,6 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
                         </text>
                       )}
                     />
-
-
                   </Group>
                 );
               }
@@ -440,7 +404,7 @@ const ParallelCoordinatesPlot: React.FC<ParallelCoordinatesPlotProps> = ({
         </svg>
       </div>
     </div>
-  );  
+  );
 };
 
 export default ParallelCoordinatesPlot;
